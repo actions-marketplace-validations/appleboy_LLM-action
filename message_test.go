@@ -65,7 +65,11 @@ func TestBuildMessages(t *testing.T) {
 					t.Error("expected first message to be system role")
 				}
 				if messages[0].Content != tt.config.SystemPrompt {
-					t.Errorf("expected system message content '%s', got '%s'", tt.config.SystemPrompt, messages[0].Content)
+					t.Errorf(
+						"expected system message content '%s', got '%s'",
+						tt.config.SystemPrompt,
+						messages[0].Content,
+					)
 				}
 			}
 
@@ -75,7 +79,11 @@ func TestBuildMessages(t *testing.T) {
 				t.Error("expected last message to be user role")
 			}
 			if lastMsg.Content != tt.config.InputPrompt {
-				t.Errorf("expected user message content '%s', got '%s'", tt.config.InputPrompt, lastMsg.Content)
+				t.Errorf(
+					"expected user message content '%s', got '%s'",
+					tt.config.InputPrompt,
+					lastMsg.Content,
+				)
 			}
 		})
 	}

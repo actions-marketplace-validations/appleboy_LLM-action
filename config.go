@@ -27,13 +27,13 @@ type Config struct {
 // LoadConfig loads configuration from environment variables
 func LoadConfig() (*Config, error) {
 	config := &Config{
-		BaseURL:     os.Getenv("INPUT_BASE_URL"),
-		APIKey:      os.Getenv("INPUT_API_KEY"),
-		Model:       os.Getenv("INPUT_MODEL"),
+		BaseURL:      os.Getenv("INPUT_BASE_URL"),
+		APIKey:       os.Getenv("INPUT_API_KEY"),
+		Model:        os.Getenv("INPUT_MODEL"),
 		SystemPrompt: os.Getenv("INPUT_SYSTEM_PROMPT"),
-		InputPrompt: os.Getenv("INPUT_INPUT_PROMPT"),
-		Temperature: 0.7,  // default
-		MaxTokens:   1000, // default
+		InputPrompt:  os.Getenv("INPUT_INPUT_PROMPT"),
+		Temperature:  0.7,  // default
+		MaxTokens:    1000, // default
 	}
 
 	// Set default base URL if not provided
