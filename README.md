@@ -16,9 +16,9 @@ A GitHub Action to interact with OpenAI Compatible LLM services. This action all
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `base_url` | Base URL for OpenAI Compatible API endpoint | Yes | - |
+| `base_url` | Base URL for OpenAI Compatible API endpoint | No | `https://api.openai.com/v1` |
 | `api_key` | API Key for authentication | Yes | - |
-| `model` | Model name to use | No | `gpt-3.5-turbo` |
+| `model` | Model name to use | No | `gpt-4o` |
 | `skip_ssl_verify` | Skip SSL certificate verification | No | `false` |
 | `system_prompt` | System prompt to set the context | No | `''` |
 | `input_prompt` | User input prompt for the LLM | Yes | - |
@@ -47,9 +47,7 @@ jobs:
         id: llm
         uses: appleboy/LLM-action@v1
         with:
-          base_url: 'https://api.openai.com/v1'
           api_key: ${{ secrets.OPENAI_API_KEY }}
-          model: 'gpt-3.5-turbo'
           input_prompt: 'What is GitHub Actions?'
 
       - name: Use LLM Response
@@ -65,7 +63,6 @@ jobs:
   id: review
   uses: appleboy/LLM-action@v1
   with:
-    base_url: 'https://api.openai.com/v1'
     api_key: ${{ secrets.OPENAI_API_KEY }}
     model: 'gpt-4'
     system_prompt: 'You are a code reviewer. Provide constructive feedback on code quality, best practices, and potential issues.'
@@ -118,9 +115,7 @@ jobs:
   id: generate
   uses: appleboy/LLM-action@v1
   with:
-    base_url: ${{ secrets.LLM_BASE_URL }}
-    api_key: ${{ secrets.LLM_API_KEY }}
-    model: 'gpt-3.5-turbo'
+    api_key: ${{ secrets.OPENAI_API_KEY }}
     input_prompt: 'Write a short story about a robot'
     max_tokens: '500'
 
@@ -128,9 +123,7 @@ jobs:
   id: translate
   uses: appleboy/LLM-action@v1
   with:
-    base_url: ${{ secrets.LLM_BASE_URL }}
-    api_key: ${{ secrets.LLM_API_KEY }}
-    model: 'gpt-3.5-turbo'
+    api_key: ${{ secrets.OPENAI_API_KEY }}
     system_prompt: 'You are a translator'
     input_prompt: |
       Translate the following text to Spanish:

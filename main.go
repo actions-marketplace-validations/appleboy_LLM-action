@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/appleboy/com/gh"
 	openai "github.com/sashabaranov/go-openai"
@@ -31,10 +30,12 @@ func run() error {
 	temperatureStr := os.Getenv("INPUT_TEMPERATURE")
 	maxTokensStr := os.Getenv("INPUT_MAX_TOKENS")
 
-	// Validate required inputs
+	// Set default base URL if not provided
 	if baseURL == "" {
-		return fmt.Errorf("base_url is required")
+		baseURL = "https://api.openai.com/v1"
 	}
+
+	// Validate required inputs
 	if apiKey == "" {
 		return fmt.Errorf("api_key is required")
 	}
@@ -61,12 +62,21 @@ func run() error {
 		maxTokens = tokens
 	}
 
+	skipSSL := false
+	if skipSSLVerify != "" {
+		skip, err := strconv.ParseBool(skipSSLVerify)
+		if err != nil {
+			return fmt.Errorf("invalid skip_ssl_verify value: %v", err)
+		}
+		skipSSL = skip
+	}
+
 	// Configure OpenAI client
 	config := openai.DefaultConfig(apiKey)
 	config.BaseURL = baseURL
 
 	// Handle SSL verification
-	if strings.ToLower(skipSSLVerify) == "true" {
+	if skipSSL {
 		customTransport := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
