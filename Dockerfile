@@ -26,7 +26,7 @@ RUN addgroup -g 1000 appuser && \
 WORKDIR /home/appuser
 
 # Copy the binary from builder
-COPY --from=builder /app/llm-action .
+COPY --from=builder /app/llm-action /home/appuser/
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /home/appuser
@@ -35,4 +35,4 @@ RUN chown -R appuser:appuser /home/appuser
 USER appuser
 
 # Run the application
-ENTRYPOINT ["./llm-action"]
+ENTRYPOINT ["/home/appuser/llm-action"]
