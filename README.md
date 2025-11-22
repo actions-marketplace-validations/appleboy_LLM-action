@@ -84,6 +84,32 @@ jobs:
     echo "${{ steps.review.outputs.response }}"
 ```
 
+### With Multiline System Prompt
+
+```yaml
+- name: Advanced Code Review
+  id: review
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    model: 'gpt-4'
+    system_prompt: |
+      You are an expert code reviewer with deep knowledge of software engineering best practices.
+
+      Your responsibilities:
+      - Identify potential bugs and security vulnerabilities
+      - Suggest improvements for code quality and maintainability
+      - Check for adherence to coding standards
+      - Evaluate performance implications
+
+      Provide constructive, actionable feedback in a professional tone.
+    input_prompt: |
+      Review the following pull request changes:
+      ${{ github.event.pull_request.body }}
+    temperature: '0.3'
+    max_tokens: '2000'
+```
+
 ### Self-Hosted / Local LLM
 
 ```yaml

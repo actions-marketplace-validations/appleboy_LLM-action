@@ -124,6 +124,21 @@ func TestLoadConfig(t *testing.T) {
 			},
 			expectError: true,
 		},
+		{
+			name: "Multiline system prompt",
+			envVars: map[string]string{
+				"INPUT_API_KEY":       "test-key",
+				"INPUT_INPUT_PROMPT":  "Hello",
+				"INPUT_SYSTEM_PROMPT": "You are a helpful assistant.\nProvide clear responses.\n\nAlways be concise.",
+			},
+			expectError: false,
+			validate: func(t *testing.T, c *Config) {
+				expected := "You are a helpful assistant.\nProvide clear responses.\n\nAlways be concise."
+				if c.SystemPrompt != expected {
+					t.Errorf("expected multiline system_prompt, got '%s'", c.SystemPrompt)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {
