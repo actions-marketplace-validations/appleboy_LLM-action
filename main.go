@@ -39,7 +39,9 @@ func run() error {
 		// Create a copy of config with masked API key for secure logging
 		debugConfig := *config
 		debugConfig.APIKey = maskAPIKey(config.APIKey)
-		godump.Dump(debugConfig)
+		if err := godump.Dump(debugConfig); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to dump config: %v\n", err)
+		}
 		fmt.Println("===================================")
 	}
 
@@ -52,7 +54,9 @@ func run() error {
 	// Debug: Print messages if debug mode is enabled
 	if config.Debug {
 		fmt.Println("=== Debug Mode: Messages ===")
-		godump.Dump(messages)
+		if err := godump.Dump(messages); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to dump messages: %v\n", err)
+		}
 		fmt.Println("============================")
 	}
 
