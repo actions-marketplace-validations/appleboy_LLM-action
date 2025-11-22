@@ -97,5 +97,9 @@ func run() error {
 		return fmt.Errorf("failed to set output: %v", err)
 	}
 
+	if err := godump.Dump(os.Getenv("GITHUB_OUTPUT")); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to dump messages: %v\n", err)
+	}
+
 	return nil
 }
