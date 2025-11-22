@@ -50,7 +50,7 @@ func TestCreateInsecureHTTPClient(t *testing.T) {
 	client := createInsecureHTTPClient()
 
 	if client == nil {
-		t.Error("expected HTTP client to be created, got nil")
+		t.Fatal("expected HTTP client to be created, got nil")
 	}
 
 	if client.Transport == nil {

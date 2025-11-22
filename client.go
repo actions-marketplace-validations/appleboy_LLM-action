@@ -21,9 +21,10 @@ func NewClient(config *Config) *openai.Client {
 }
 
 // createInsecureHTTPClient creates an HTTP client that skips SSL verification
+// #nosec G402 - This is intentionally configurable by the user for local/self-hosted LLM services
 func createInsecureHTTPClient() *http.Client {
 	customTransport := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402
 	}
 	return &http.Client{
 		Transport: customTransport,
