@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/appleboy/com/gh"
 	openai "github.com/sashabaranov/go-openai"
 )
 
@@ -119,36 +120,15 @@ func run() error {
 	response := resp.Choices[0].Message.Content
 
 	// Print response for debugging
-	fmt.Println("\n--- LLM Response ---")
+	fmt.Println("--- LLM Response ---")
 	fmt.Println(response)
-	fmt.Println("--- End Response ---\n")
+	fmt.Println("--- End Response ---")
 
-	// Set GitHub Actions output
-	if err := setOutput("response", response); err != nil {
+	if err := gh.SetOutput(map[string]string{
+		"response": response,
+	}); err != nil {
 		return fmt.Errorf("failed to set output: %v", err)
 	}
 
 	return nil
-}
-
-// setOutput sets a GitHub Actions output parameter
-func setOutput(name, value string) error {
-	// Check if GITHUB_OUTPUT is set
-	githubOutput := os.Getenv("GITHUB_OUTPUT")
-	if githubOutput == "" {
-		fmt.Printf("::set-output name=%s::%s\n", name, value)
-		return nil
-	}
-
-	// Use the new GITHUB_OUTPUT file method
-	f, err := os.OpenFile(githubOutput, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	// Handle multiline output using EOF delimiter
-	delimiter := "EOF"
-	_, err = f.WriteString(fmt.Sprintf("%s<<%s\n%s\n%s\n", name, delimiter, value, delimiter))
-	return err
 }
