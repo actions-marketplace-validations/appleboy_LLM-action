@@ -76,7 +76,7 @@ builds:
       post:
         - cmd: xz -k -9 {{ .Path }}
           dir: ./dist/
-    main: ./cmd/go-jira
+    main: .
 
 archives:
   - format: binary
