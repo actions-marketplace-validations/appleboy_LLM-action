@@ -15,6 +15,7 @@ A GitHub Action to interact with OpenAI Compatible LLM services. This action all
 - 🎯 System prompt support for context setting
 - 📝 Output response available for subsequent actions
 - 🎛️ Configurable temperature and max tokens
+- 🐛 Debug mode with secure API key masking
 
 ## Inputs
 
@@ -28,6 +29,7 @@ A GitHub Action to interact with OpenAI Compatible LLM services. This action all
 | `input_prompt` | User input prompt for the LLM | Yes | - |
 | `temperature` | Temperature for response randomness (0.0-2.0) | No | `0.7` |
 | `max_tokens` | Maximum tokens in the response | No | `1000` |
+| `debug` | Enable debug mode to print all parameters (API key will be masked) | No | `false` |
 
 ## Outputs
 
@@ -168,6 +170,47 @@ jobs:
     echo "${{ steps.translate.outputs.response }}"
 ```
 
+### Debug Mode
+
+Enable debug mode to troubleshoot issues and inspect all parameters:
+
+```yaml
+- name: Call LLM with Debug
+  id: llm_debug
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    model: 'gpt-4'
+    system_prompt: 'You are a helpful assistant'
+    input_prompt: 'Explain how GitHub Actions work'
+    temperature: '0.8'
+    max_tokens: '1500'
+    debug: true  # Enable debug mode
+```
+
+**Debug Output Example:**
+
+```txt
+=== Debug Mode: All Parameters ===
+main.Config{
+    BaseURL: "https://api.openai.com/v1",
+    APIKey: "sk-ab****xyz9",  // Masked for security
+    Model: "gpt-4",
+    SkipSSLVerify: false,
+    SystemPrompt: "You are a helpful assistant",
+    InputPrompt: "Explain how GitHub Actions work",
+    Temperature: 0.8,
+    MaxTokens: 1500,
+    Debug: true
+}
+===================================
+=== Debug Mode: Messages ===
+[... message details ...]
+============================
+```
+
+**Security Note:** When debug mode is enabled, the API key is automatically masked (only showing first 4 and last 4 characters) to prevent accidental exposure in logs.
+
 ## Supported Services
 
 This action works with any OpenAI-compatible API, including:
@@ -204,6 +247,7 @@ docker run --rm \
   -e INPUT_API_KEY="your-api-key" \
   -e INPUT_MODEL="gpt-3.5-turbo" \
   -e INPUT_INPUT_PROMPT="Hello, world!" \
+  -e INPUT_DEBUG="true" \
   llm-action
 ```
 
