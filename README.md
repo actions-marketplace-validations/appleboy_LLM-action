@@ -1,5 +1,8 @@
 # LLM Action
 
+[![Lint and Testing](https://github.com/appleboy/LLM-action/actions/workflows/testing.yml/badge.svg)](https://github.com/appleboy/LLM-action/actions/workflows/testing.yml)
+[![Trivy Security Scan](https://github.com/appleboy/LLM-action/actions/workflows/trivy.yml/badge.svg)](https://github.com/appleboy/LLM-action/actions/workflows/trivy.yml)
+
 A GitHub Action to interact with OpenAI Compatible LLM services. This action allows you to connect to any OpenAI-compatible API endpoint (including local or self-hosted services) and get responses that can be used in your workflow.
 
 ## Features
