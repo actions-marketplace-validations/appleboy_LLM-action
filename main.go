@@ -2,11 +2,8 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
-	"net/http"
 	"os"
-	"strconv"
 
 	"github.com/appleboy/com/gh"
 	openai "github.com/sashabaranov/go-openai"
@@ -20,101 +17,29 @@ func main() {
 }
 
 func run() error {
-	// Get input parameters from environment variables
-	baseURL := os.Getenv("INPUT_BASE_URL")
-	apiKey := os.Getenv("INPUT_API_KEY")
-	model := os.Getenv("INPUT_MODEL")
-	skipSSLVerify := os.Getenv("INPUT_SKIP_SSL_VERIFY")
-	systemPrompt := os.Getenv("INPUT_SYSTEM_PROMPT")
-	inputPrompt := os.Getenv("INPUT_INPUT_PROMPT")
-	temperatureStr := os.Getenv("INPUT_TEMPERATURE")
-	maxTokensStr := os.Getenv("INPUT_MAX_TOKENS")
-
-	// Set default base URL if not provided
-	if baseURL == "" {
-		baseURL = "https://api.openai.com/v1"
+	// Load configuration
+	config, err := LoadConfig()
+	if err != nil {
+		return err
 	}
 
-	// Validate required inputs
-	if apiKey == "" {
-		return fmt.Errorf("api_key is required")
-	}
-	if inputPrompt == "" {
-		return fmt.Errorf("input_prompt is required")
-	}
+	// Create OpenAI client
+	client := NewClient(config)
 
-	// Parse optional parameters
-	temperature := 0.7
-	if temperatureStr != "" {
-		temp, err := strconv.ParseFloat(temperatureStr, 32)
-		if err != nil {
-			return fmt.Errorf("invalid temperature value: %v", err)
-		}
-		temperature = temp
-	}
-
-	maxTokens := 1000
-	if maxTokensStr != "" {
-		tokens, err := strconv.Atoi(maxTokensStr)
-		if err != nil {
-			return fmt.Errorf("invalid max_tokens value: %v", err)
-		}
-		maxTokens = tokens
-	}
-
-	skipSSL := false
-	if skipSSLVerify != "" {
-		skip, err := strconv.ParseBool(skipSSLVerify)
-		if err != nil {
-			return fmt.Errorf("invalid skip_ssl_verify value: %v", err)
-		}
-		skipSSL = skip
-	}
-
-	// Configure OpenAI client
-	config := openai.DefaultConfig(apiKey)
-	config.BaseURL = baseURL
-
-	// Handle SSL verification
-	if skipSSL {
-		customTransport := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		config.HTTPClient = &http.Client{
-			Transport: customTransport,
-		}
-	}
-
-	client := openai.NewClientWithConfig(config)
-
-	// Prepare messages
-	messages := []openai.ChatCompletionMessage{}
-
-	// Add system prompt if provided
-	if systemPrompt != "" {
-		messages = append(messages, openai.ChatCompletionMessage{
-			Role:    openai.ChatMessageRoleSystem,
-			Content: systemPrompt,
-		})
-	}
-
-	// Add user prompt
-	messages = append(messages, openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleUser,
-		Content: inputPrompt,
-	})
+	// Build messages
+	messages := BuildMessages(config)
 
 	// Create chat completion request
 	req := openai.ChatCompletionRequest{
-		Model:       model,
+		Model:       config.Model,
 		Messages:    messages,
-		Temperature: float32(temperature),
-		MaxTokens:   maxTokens,
+		Temperature: float32(config.Temperature),
+		MaxTokens:   config.MaxTokens,
 	}
 
 	fmt.Println("Sending request to LLM...")
-	fmt.Printf("Model: %s\n", model)
-	fmt.Printf("Base URL: %s\n", baseURL)
+	fmt.Printf("Model: %s\n", config.Model)
+	fmt.Printf("Base URL: %s\n", config.BaseURL)
 
 	// Call the API
 	resp, err := client.CreateChatCompletion(context.Background(), req)
@@ -134,6 +59,7 @@ func run() error {
 	fmt.Println(response)
 	fmt.Println("--- End Response ---")
 
+	// Set GitHub Actions output
 	if err := gh.SetOutput(map[string]string{
 		"response": response,
 	}); err != nil {
