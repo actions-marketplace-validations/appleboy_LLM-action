@@ -1,5 +1,5 @@
-github.com/appleboy/com v1.1.0 h1:HLgRzhtj+4PLuFPPutKexd9zI9F74ymgWhkgPfPtnkc=
-github.com/appleboy/com v1.1.0/go.mod h1:IbC1mLvqcIYn2YVNJgAYB9XnhbUh1xYKsOzdEOy0n+c=
+github.com/appleboy/com v1.1.1-0.20251122050243-e3747d823b31 h1:ghktyMDFfEwbQVS2DWuL9a5GCyGvgRF2aKR8YqQ3lS4=
+github.com/appleboy/com v1.1.1-0.20251122050243-e3747d823b31/go.mod h1:imeDrCxHe1nnKx/1wt/4tWdyNqD89tdazVa8ZopjQLk=
 github.com/sashabaranov/go-openai v1.41.2 h1:vfPRBZNMpnqu8ELsclWcAvF19lDNgh1t6TVfFFOPiSM=
 github.com/sashabaranov/go-openai v1.41.2/go.mod h1:lj5b/K+zjTSFxVLijLSTDZuP7adOgerWeFyZLUhAKRg=
 github.com/yassinebenaid/godump v0.11.1 h1:SPujx/XaYqGDfmNh7JI3dOyCUVrG0bG2duhO3Eh2EhI=

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/appleboy/com/gh"
 	openai "github.com/sashabaranov/go-openai"
@@ -93,7 +92,7 @@ func run() error {
 
 	// Set GitHub Actions output
 	if err := gh.SetOutput(map[string]string{
-		"response": strings.ReplaceAll(response, "\n", "\\n"),
+		"response": response,
 	}); err != nil {
 		return fmt.Errorf("failed to set output: %v", err)
 	}
