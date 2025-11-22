@@ -7,6 +7,7 @@ import (
 
 	"github.com/appleboy/com/gh"
 	openai "github.com/sashabaranov/go-openai"
+	"github.com/yassinebenaid/godump"
 )
 
 func main() {
@@ -16,6 +17,15 @@ func main() {
 	}
 }
 
+// maskAPIKey masks the API key for secure logging
+func maskAPIKey(apiKey string) string {
+	if len(apiKey) <= 8 {
+		return "********"
+	}
+	// Show first 4 and last 4 characters
+	return apiKey[:4] + "****" + apiKey[len(apiKey)-4:]
+}
+
 func run() error {
 	// Load configuration
 	config, err := LoadConfig()
@@ -23,11 +33,28 @@ func run() error {
 		return err
 	}
 
+	// Debug: Print all parameters if debug mode is enabled
+	if config.Debug {
+		fmt.Println("=== Debug Mode: All Parameters ===")
+		// Create a copy of config with masked API key for secure logging
+		debugConfig := *config
+		debugConfig.APIKey = maskAPIKey(config.APIKey)
+		godump.Dump(debugConfig)
+		fmt.Println("===================================")
+	}
+
 	// Create OpenAI client
 	client := NewClient(config)
 
 	// Build messages
 	messages := BuildMessages(config)
+
+	// Debug: Print messages if debug mode is enabled
+	if config.Debug {
+		fmt.Println("=== Debug Mode: Messages ===")
+		godump.Dump(messages)
+		fmt.Println("============================")
+	}
 
 	// Create chat completion request
 	req := openai.ChatCompletionRequest{

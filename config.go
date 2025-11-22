@@ -22,6 +22,7 @@ type Config struct {
 	InputPrompt   string
 	Temperature   float64
 	MaxTokens     int
+	Debug         bool
 }
 
 // LoadConfig loads configuration from environment variables
@@ -59,6 +60,10 @@ func LoadConfig() (*Config, error) {
 	}
 
 	if err := config.parseSkipSSL(os.Getenv("INPUT_SKIP_SSL_VERIFY")); err != nil {
+		return nil, err
+	}
+
+	if err := config.parseDebug(os.Getenv("INPUT_DEBUG")); err != nil {
 		return nil, err
 	}
 
@@ -107,5 +112,19 @@ func (c *Config) parseSkipSSL(s string) error {
 		return fmt.Errorf("invalid skip_ssl_verify value: %v", err)
 	}
 	c.SkipSSLVerify = skip
+	return nil
+}
+
+// parseDebug parses debug string to bool
+func (c *Config) parseDebug(s string) error {
+	if s == "" {
+		return nil
+	}
+
+	debug, err := strconv.ParseBool(s)
+	if err != nil {
+		return fmt.Errorf("invalid debug value: %v", err)
+	}
+	c.Debug = debug
 	return nil
 }
