@@ -1,5 +1,7 @@
 # LLM Action
 
+[English](README.md) | [繁體中文](README.zh-TW.md) | [簡體中文](README.zh-CN.md)
+
 [![Lint and Testing](https://github.com/appleboy/LLM-action/actions/workflows/testing.yml/badge.svg)](https://github.com/appleboy/LLM-action/actions/workflows/testing.yml)
 [![Trivy Security Scan](https://github.com/appleboy/LLM-action/actions/workflows/trivy.yml/badge.svg)](https://github.com/appleboy/LLM-action/actions/workflows/trivy.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/appleboy/LLM-action)](https://goreportcard.com/report/github.com/appleboy/LLM-action)
@@ -230,34 +232,6 @@ This action works with any OpenAI-compatible API, including:
 - Always use GitHub Secrets for API keys: `${{ secrets.YOUR_API_KEY }}`
 - Only use `skip_ssl_verify: 'true'` for trusted local/internal services
 - Be careful with sensitive data in prompts, as they will be sent to the LLM service
-
-## Development
-
-### Local Testing
-
-Build and run locally:
-
-```bash
-# Build the Docker image
-docker build -t llm-action .
-
-# Run with environment variables
-docker run --rm \
-  -e INPUT_BASE_URL="https://api.openai.com/v1" \
-  -e INPUT_API_KEY="your-api-key" \
-  -e INPUT_MODEL="gpt-3.5-turbo" \
-  -e INPUT_INPUT_PROMPT="Hello, world!" \
-  -e INPUT_DEBUG="true" \
-  llm-action
-```
-
-### Build from Source
-
-```bash
-go mod download
-go build -o llm-action .
-./llm-action
-```
 
 ## License
 

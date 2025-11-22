@@ -1,0 +1,242 @@
+# LLM Action
+
+[English](README.md) | [繁體中文](README.zh-TW.md) | [簡體中文](README.zh-CN.md)
+
+[![Lint and Testing](https://github.com/appleboy/LLM-action/actions/workflows/testing.yml/badge.svg)](https://github.com/appleboy/LLM-action/actions/workflows/testing.yml)
+[![Trivy Security Scan](https://github.com/appleboy/LLM-action/actions/workflows/trivy.yml/badge.svg)](https://github.com/appleboy/LLM-action/actions/workflows/trivy.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/appleboy/LLM-action)](https://goreportcard.com/report/github.com/appleboy/LLM-action)
+
+一個用於與 OpenAI 相容 LLM 服務互動的 GitHub Action。此 Action 允許您連接到任何 OpenAI 相容的 API 端點（包括本地或自架服務），並獲取可用於工作流程的回應。
+
+## 功能特色
+
+- 🔌 連接任何 OpenAI 相容的 API 端點
+- 🔐 支援自訂 API 金鑰
+- 🔧 可配置的基礎 URL，適用於自架服務
+- 🚫 選擇性跳過 SSL 憑證驗證
+- 🎯 支援系統提示詞以設定情境
+- 📝 輸出回應可用於後續 Actions
+- 🎛️ 可配置的溫度和最大權杖數
+- 🐛 偵錯模式，並安全地遮罩 API 金鑰
+
+## 輸入參數
+
+| 輸入 | 說明 | 必填 | 預設值 |
+|-------|-------------|----------|------------|
+| `base_url` | OpenAI 相容 API 端點的基礎 URL | 否 | `https://api.openai.com/v1` |
+| `api_key` | 用於驗證的 API 金鑰 | 是 | - |
+| `model` | 要使用的模型名稱 | 否 | `gpt-4o` |
+| `skip_ssl_verify` | 跳過 SSL 憑證驗證 | 否 | `false` |
+| `system_prompt` | 設定情境的系統提示詞 | 否 | `''` |
+| `input_prompt` | 使用者輸入給 LLM 的提示詞 | 是 | - |
+| `temperature` | 回應隨機性的溫度值（0.0-2.0） | 否 | `0.7` |
+| `max_tokens` | 回應中的最大權杖數 | 否 | `1000` |
+| `debug` | 啟用偵錯模式以顯示所有參數（API 金鑰將被遮罩） | 否 | `false` |
+
+## 輸出參數
+
+| 輸出 | 說明 |
+|--------|-------------|
+| `response` | 來自 LLM 的回應 |
+
+## 使用範例
+
+### 基本範例
+
+```yaml
+name: LLM Workflow
+on: [push]
+
+jobs:
+  llm-task:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call LLM
+        id: llm
+        uses: appleboy/LLM-action@v1
+        with:
+          api_key: ${{ secrets.OPENAI_API_KEY }}
+          input_prompt: 'What is GitHub Actions?'
+
+      - name: Use LLM Response
+        run: |
+          echo "LLM Response:"
+          echo "${{ steps.llm.outputs.response }}"
+```
+
+### 使用系統提示詞
+
+```yaml
+- name: Code Review with LLM
+  id: review
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    model: 'gpt-4'
+    system_prompt: '你是一位程式碼審查員。請提供有關程式碼品質、最佳實務和潛在問題的建設性意見。'
+    input_prompt: |
+      請審查此程式碼：
+      ```python
+      def add(a, b):
+          return a + b
+      ```
+    temperature: '0.3'
+    max_tokens: '2000'
+
+- name: Post Review Comment
+  run: |
+    echo "${{ steps.review.outputs.response }}"
+```
+
+### 使用多行系統提示詞
+
+```yaml
+- name: Advanced Code Review
+  id: review
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    model: 'gpt-4'
+    system_prompt: |
+      你是一位擁有深厚軟體工程最佳實務知識的專業程式碼審查員。
+
+      你的職責：
+      - 識別潛在的錯誤和安全漏洞
+      - 建議改善程式碼品質和可維護性的方法
+      - 檢查是否遵守程式碼標準
+      - 評估效能影響
+
+      請以專業的語氣提供建設性、可行的意見。
+    input_prompt: |
+      審查以下 Pull Request 變更：
+      ${{ github.event.pull_request.body }}
+    temperature: '0.3'
+    max_tokens: '2000'
+```
+
+### 自架 / 本地 LLM
+
+```yaml
+- name: Call Local LLM
+  id: local_llm
+  uses: appleboy/LLM-action@v1
+  with:
+    base_url: 'http://localhost:8080/v1'
+    api_key: 'your-local-api-key'
+    model: 'llama2'
+    skip_ssl_verify: 'true'
+    input_prompt: '用簡單的術語解釋量子計算'
+```
+
+### 搭配 Ollama 使用
+
+```yaml
+- name: Call Ollama
+  id: ollama
+  uses: appleboy/LLM-action@v1
+  with:
+    base_url: 'http://localhost:11434/v1'
+    api_key: 'ollama'
+    model: 'llama3'
+    system_prompt: '你是一個樂於助人的助手'
+    input_prompt: '寫一首關於程式設計的俳句'
+```
+
+### 鏈結多個 LLM 呼叫
+
+```yaml
+- name: Generate Story
+  id: generate
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    input_prompt: '寫一個關於機器人的短篇故事'
+    max_tokens: '500'
+
+- name: Translate Story
+  id: translate
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    system_prompt: '你是一位翻譯員'
+    input_prompt: |
+      將以下文字翻譯成西班牙文：
+      ${{ steps.generate.outputs.response }}
+
+- name: Display Results
+  run: |
+    echo "原始故事："
+    echo "${{ steps.generate.outputs.response }}"
+    echo ""
+    echo "翻譯後的故事："
+    echo "${{ steps.translate.outputs.response }}"
+```
+
+### 偵錯模式
+
+啟用偵錯模式以排除問題並檢查所有參數：
+
+```yaml
+- name: Call LLM with Debug
+  id: llm_debug
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    model: 'gpt-4'
+    system_prompt: '你是一個樂於助人的助手'
+    input_prompt: '解釋 GitHub Actions 如何運作'
+    temperature: '0.8'
+    max_tokens: '1500'
+    debug: true  # 啟用偵錯模式
+```
+
+**偵錯輸出範例：**
+
+```txt
+=== Debug Mode: All Parameters ===
+main.Config{
+    BaseURL: "https://api.openai.com/v1",
+    APIKey: "sk-ab****xyz9",  // 為了安全而遮罩
+    Model: "gpt-4",
+    SkipSSLVerify: false,
+    SystemPrompt: "你是一個樂於助人的助手",
+    InputPrompt: "解釋 GitHub Actions 如何運作",
+    Temperature: 0.8,
+    MaxTokens: 1500,
+    Debug: true
+}
+===================================
+=== Debug Mode: Messages ===
+[... 訊息詳情 ...]
+============================
+```
+
+**安全說明：** 當啟用偵錯模式時，API 金鑰會自動遮罩（僅顯示前 4 個和後 4 個字元），以防止在日誌中意外洩露。
+
+## 支援的服務
+
+此 Action 適用於任何 OpenAI 相容的 API，包括：
+
+- **OpenAI** - `https://api.openai.com/v1`
+- **Azure OpenAI** - `https://{your-resource}.openai.azure.com/openai/deployments/{deployment-id}`
+- **Ollama** - `http://localhost:11434/v1`
+- **LocalAI** - `http://localhost:8080/v1`
+- **LM Studio** - `http://localhost:1234/v1`
+- **Jan** - `http://localhost:1337/v1`
+- **vLLM** - 您的 vLLM 伺服器端點
+- **Text Generation WebUI** - 您的 WebUI 端點
+- 任何其他 OpenAI 相容的服務
+
+## 安全考量
+
+- 請務必使用 GitHub Secrets 儲存 API 金鑰：`${{ secrets.YOUR_API_KEY }}`
+- 僅在信任的本地/內部服務中使用 `skip_ssl_verify: 'true'`
+- 請謹慎處理提示詞中的敏感資料，因為它們將被發送到 LLM 服務
+
+## 授權
+
+MIT License - 詳見 LICENSE 文件
+
+## 貢獻
+
+歡迎貢獻！請隨時提交 Pull Request。
