@@ -92,7 +92,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64
-          file: docker/Dockerfile
+          file: Dockerfile
           load: true
           tags: ${{ env.REPO }}:scan
           cache-from: type=gha
@@ -128,7 +128,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          file: docker/Dockerfile
+          file: Dockerfile
           push: true
           tags: ${{ steps.docker-meta.outputs.tags }}
           labels: ${{ steps.docker-meta.outputs.labels }}
