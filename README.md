@@ -390,11 +390,21 @@ Use `tool_schema` to get structured JSON output from the LLM using function call
       }
 
 - name: Process Review Results
+  env:
+    SCORE: ${{ steps.review.outputs.score }}
+    ISSUES: ${{ steps.review.outputs.issues }}
+    SUGGESTIONS: ${{ steps.review.outputs.suggestions }}
   run: |
-    echo "Score: ${{ steps.review.outputs.score }}"
-    echo "Issues: ${{ steps.review.outputs.issues }}"
-    echo "Suggestions: ${{ steps.review.outputs.suggestions }}"
+    echo "Score: $SCORE"
+    echo "Issues: $ISSUES"
+    echo "Suggestions: $SUGGESTIONS"
 ```
+
+**Why use environment variables instead of direct interpolation?**
+
+- **Automatic escaping**: GitHub Actions automatically handles special characters in environment variables, avoiding shell parsing errors
+- **More secure**: Prevents injection attacks and accidental command execution from LLM outputs
+- **Cleaner code**: The workflow is easier to read and maintain
 
 #### Tool Schema from File
 

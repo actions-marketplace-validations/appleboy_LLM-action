@@ -390,11 +390,21 @@ jobs:
       }
 
 - name: Process Review Results
+  env:
+    SCORE: ${{ steps.review.outputs.score }}
+    ISSUES: ${{ steps.review.outputs.issues }}
+    SUGGESTIONS: ${{ steps.review.outputs.suggestions }}
   run: |
-    echo "評分：${{ steps.review.outputs.score }}"
-    echo "問題：${{ steps.review.outputs.issues }}"
-    echo "建議：${{ steps.review.outputs.suggestions }}"
+    echo "評分：$SCORE"
+    echo "問題：$ISSUES"
+    echo "建議：$SUGGESTIONS"
 ```
+
+**為什麼使用環境變數而非直接插值？**
+
+- **自動轉義特殊字符**：GitHub Actions 會自動處理環境變數中的特殊符號，避免 shell 解析錯誤
+- **更安全**：防止注入攻擊和意外的命令執行，特別是處理 LLM 輸出時
+- **更清晰**：程式碼更易讀且易於維護
 
 #### 從檔案載入 Tool Schema
 
