@@ -139,7 +139,7 @@ func run() error {
 		var err error
 		output, err = ParseFunctionArguments(response)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to parse function arguments: %w", err)
 		}
 	} else {
 		output = map[string]string{
