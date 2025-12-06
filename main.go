@@ -122,12 +122,8 @@ func run() error {
 			// Debug: Print tool call details if debug mode is enabled
 			if config.Debug {
 				fmt.Println("=== Debug Mode: Tool Calls ===")
-				for i, tc := range resp.Choices[0].Message.ToolCalls {
-					fmt.Printf("Tool Call [%d]:\n", i)
-					fmt.Printf("  ID: %s\n", tc.ID)
-					fmt.Printf("  Type: %s\n", tc.Type)
-					fmt.Printf("  Function Name: %s\n", tc.Function.Name)
-					fmt.Printf("  Function Arguments: %s\n", tc.Function.Arguments)
+				if err := godump.Dump(resp.Choices[0].Message.ToolCalls); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: failed to dump tool calls: %v\n", err)
 				}
 				fmt.Println("==============================")
 			}
