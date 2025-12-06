@@ -119,6 +119,18 @@ func run() error {
 	if toolMeta != nil {
 		// Extract function call arguments when tool schema is used
 		if len(resp.Choices[0].Message.ToolCalls) > 0 {
+			// Debug: Print tool call details if debug mode is enabled
+			if config.Debug {
+				fmt.Println("=== Debug Mode: Tool Calls ===")
+				for i, tc := range resp.Choices[0].Message.ToolCalls {
+					fmt.Printf("Tool Call [%d]:\n", i)
+					fmt.Printf("  ID: %s\n", tc.ID)
+					fmt.Printf("  Type: %s\n", tc.Type)
+					fmt.Printf("  Function Name: %s\n", tc.Function.Name)
+					fmt.Printf("  Function Arguments: %s\n", tc.Function.Arguments)
+				}
+				fmt.Println("==============================")
+			}
 			response = resp.Choices[0].Message.ToolCalls[0].Function.Arguments
 		} else {
 			return fmt.Errorf("expected tool call response but got none")
