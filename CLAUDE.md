@@ -50,6 +50,7 @@ export INPUT_API_KEY="your-api-key"
 export INPUT_INPUT_PROMPT="your prompt"
 export INPUT_MODEL="gpt-4o"  # optional
 export INPUT_BASE_URL="https://api.openai.com/v1"  # optional
+export INPUT_CA_CERT="/path/to/ca-cert.pem"  # optional, for self-signed certs
 export INPUT_DEBUG="true"  # optional
 go run .
 ```
@@ -68,8 +69,10 @@ go run .
 
 - `LoadConfig()` reads all inputs from environment variables (GitHub Actions sets these with `INPUT_` prefix)
 - Required: `api_key`, `input_prompt`
-- Optional with defaults: `base_url`, `model`, `temperature`, `max_tokens`, `skip_ssl_verify`, `system_prompt`, `debug`
+- Optional with defaults: `base_url`, `model`, `temperature`, `max_tokens`, `skip_ssl_verify`, `ca_cert`, `system_prompt`, `debug`
 - Each optional parameter has dedicated parse methods (`parseTemperature`, `parseMaxTokens`, `parseSkipSSL`, `parseDebug`)
+- Prompts (`system_prompt`, `input_prompt`) are loaded via `LoadPrompt()` with Go template rendering
+- CA certificates are loaded via `LoadContent()` without template rendering
 
 **client.go** - OpenAI client initialization
 
@@ -83,10 +86,25 @@ go run .
 - System prompt is prepended if provided, followed by user input prompt
 - Returns slice of `openai.ChatCompletionMessage`
 
+**prompt_loader.go** - Flexible content loading
+
+- `LoadPrompt()` loads content from plain text, file path, or URL, then renders as Go template
+- `LoadContent()` loads content from plain text, file path, or URL without template rendering
+- Supports `file://` prefix and automatic file detection via `os.Stat()`
+- URL fetching includes 30-second timeout and User-Agent header
+
+**template.go** - Go template rendering
+
+- `RenderTemplate()` processes Go templates with environment variables as data
+- `buildTemplateData()` creates template data map from all environment variables
+- Variables with `INPUT_` prefix are accessible both with and without the prefix (e.g., `INPUT_MODEL` → `{{.MODEL}}` or `{{.INPUT_MODEL}}`)
+
 ### Data Flow
 
 1. Environment variables (`INPUT_*`) → `LoadConfig()` → `Config` struct
-2. `Config` → `NewClient()` → OpenAI client with custom base URL and SSL settings
+   - Prompts: `LoadPrompt()` → `loadFromFile()`/`loadFromURL()` → `RenderTemplate()`
+   - CA cert: `LoadContent()` → `loadFromFile()`/`loadFromURL()` (no template rendering)
+2. `Config` → `NewClient()` → OpenAI client with custom base URL, SSL settings, and CA cert
 3. `Config` → `BuildMessages()` → OpenAI message format
 4. Client + Messages → `CreateChatCompletion()` → API call to LLM service
 5. API response → Extract content → `gh.SetOutput()` → GitHub Actions output
