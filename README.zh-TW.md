@@ -6,7 +6,7 @@
 [![Trivy Security Scan](https://github.com/appleboy/LLM-action/actions/workflows/trivy.yml/badge.svg)](https://github.com/appleboy/LLM-action/actions/workflows/trivy.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/appleboy/LLM-action)](https://goreportcard.com/report/github.com/appleboy/LLM-action)
 
-一個用於與 OpenAI 相容 LLM 服務互動的 GitHub Action。此 Action 允許您連接到任何 OpenAI 相容的 API 端點（包括本地或自架服務），並獲取可用於工作流程的回應。
+一個用於與 OpenAI 相容 LLM 服務互動的 GitHub Action，支援自訂端點、自架模型（Ollama、LocalAI、vLLM）、SSL/CA 憑證、Go template 動態提示詞，以及透過 function calling 實現結構化輸出。
 
 ## 功能特色
 
