@@ -8,6 +8,47 @@
 
 A GitHub Action to interact with OpenAI-compatible LLM services, supporting custom endpoints, self-hosted models (Ollama, LocalAI, vLLM), SSL/CA certificates, Go template prompts, and structured output via function calling.
 
+## Table of Contents
+
+- [LLM Action](#llm-action)
+  - [Table of Contents](#table-of-contents)
+  - [Features](#features)
+  - [Inputs](#inputs)
+  - [Outputs](#outputs)
+  - [Usage Examples](#usage-examples)
+    - [Basic Example](#basic-example)
+    - [Version Pinning](#version-pinning)
+    - [With System Prompt](#with-system-prompt)
+    - [With Multiline System Prompt](#with-multiline-system-prompt)
+    - [System Prompt from File](#system-prompt-from-file)
+    - [System Prompt from URL](#system-prompt-from-url)
+    - [Input Prompt from File](#input-prompt-from-file)
+    - [Input Prompt from URL](#input-prompt-from-url)
+    - [Using Go Templates in Prompts](#using-go-templates-in-prompts)
+      - [Example 1: Using GitHub Actions Variables](#example-1-using-github-actions-variables)
+      - [Example 2: Using Custom Environment Variables](#example-2-using-custom-environment-variables)
+      - [Example 3: Template in File](#example-3-template-in-file)
+      - [Example 4: Conditional Logic](#example-4-conditional-logic)
+      - [Available GitHub Actions Environment Variables](#available-github-actions-environment-variables)
+    - [Structured Output with Tool Schema](#structured-output-with-tool-schema)
+      - [Basic Structured Output](#basic-structured-output)
+      - [Code Review with Structured Output](#code-review-with-structured-output)
+      - [Tool Schema from File](#tool-schema-from-file)
+      - [Tool Schema with Go Templates](#tool-schema-with-go-templates)
+    - [Self-Hosted / Local LLM](#self-hosted--local-llm)
+    - [Using with Azure OpenAI](#using-with-azure-openai)
+    - [Using Custom CA Certificate](#using-custom-ca-certificate)
+      - [Certificate Content](#certificate-content)
+      - [Certificate from File](#certificate-from-file)
+      - [Certificate from URL](#certificate-from-url)
+    - [Using with Ollama](#using-with-ollama)
+    - [Chain Multiple LLM Calls](#chain-multiple-llm-calls)
+    - [Debug Mode](#debug-mode)
+  - [Supported Services](#supported-services)
+  - [Security Considerations](#security-considerations)
+  - [License](#license)
+  - [Contributing](#contributing)
+
 ## Features
 
 - 🔌 Connect to any OpenAI-compatible API endpoint
@@ -82,9 +123,26 @@ jobs:
           echo "${{ steps.llm.outputs.response }}"
 ```
 
+### Version Pinning
+
+You can pin to specific versions of this action:
+
+```yaml
+# Use major version (recommended - automatically gets compatible updates)
+uses: appleboy/LLM-action@v1
+
+# Use specific version (for maximum stability)
+uses: appleboy/LLM-action@v1.0.0
+
+# Use latest development version (not recommended for production)
+uses: appleboy/LLM-action@main
+```
+
+**Recommendation:** Use the major version tag (e.g., `@v1`) to automatically receive backward-compatible updates and bug fixes.
+
 ### With System Prompt
 
-````yaml
+```yaml
 - name: Code Review with LLM
   id: review
   uses: appleboy/LLM-action@v1
@@ -104,7 +162,7 @@ jobs:
 - name: Post Review Comment
   run: |
     echo "${{ steps.review.outputs.response }}"
-````
+```
 
 ### With Multiline System Prompt
 
@@ -136,7 +194,7 @@ jobs:
 
 Instead of embedding long prompts in YAML, you can load them from a file:
 
-````yaml
+```yaml
 - name: Code Review with Prompt File
   id: review
   uses: appleboy/LLM-action@v1
@@ -150,7 +208,7 @@ Instead of embedding long prompts in YAML, you can load them from a file:
       def calculate(x, y):
           return x / y
       ```
-````
+```
 
 Or using `file://` prefix:
 
@@ -467,6 +525,47 @@ Use Go templates in your schema for dynamic configuration:
     model: "llama2"
     skip_ssl_verify: "true"
     input_prompt: "Explain quantum computing in simple terms"
+```
+
+### Using with Azure OpenAI
+
+Azure OpenAI Service requires a different URL format. You need to specify your resource name and deployment ID in the base URL:
+
+```yaml
+- name: Call Azure OpenAI
+  id: azure_llm
+  uses: appleboy/LLM-action@v1
+  with:
+    base_url: "https://{your-resource-name}.openai.azure.com/openai/deployments/{deployment-id}"
+    api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+    model: "gpt-4" # This should match your deployment model
+    system_prompt: "You are a helpful assistant"
+    input_prompt: "Explain the benefits of cloud computing"
+```
+
+**Configuration Notes:**
+
+- Replace `{your-resource-name}` with your Azure OpenAI resource name
+- Replace `{deployment-id}` with your model deployment name
+- The `model` parameter should match the model you deployed
+- API key can be found in Azure Portal under your OpenAI resource's "Keys and Endpoint"
+
+**Example with all parameters:**
+
+```yaml
+- name: Azure OpenAI Code Review
+  id: azure_review
+  uses: appleboy/LLM-action@v1
+  with:
+    base_url: "https://my-openai-resource.openai.azure.com/openai/deployments/gpt-4-deployment"
+    api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+    model: "gpt-4"
+    system_prompt: "You are an expert code reviewer"
+    input_prompt: |
+      Review this code for best practices:
+      ${{ github.event.pull_request.body }}
+    temperature: "0.3"
+    max_tokens: "2000"
 ```
 
 ### Using Custom CA Certificate

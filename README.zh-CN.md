@@ -8,6 +8,47 @@
 
 一个用于与 OpenAI 兼容 LLM 服务交互的 GitHub Action，支持自定义端点、自托管模型（Ollama、LocalAI、vLLM）、SSL/CA 证书、Go template 动态提示词，以及通过 function calling 实现结构化输出。
 
+## 目录
+
+- [LLM Action](#llm-action)
+  - [目录](#目录)
+  - [功能特色](#功能特色)
+  - [输入参数](#输入参数)
+  - [输出参数](#输出参数)
+  - [使用范例](#使用范例)
+    - [基本范例](#基本范例)
+    - [版本固定](#版本固定)
+    - [使用系统提示词](#使用系统提示词)
+    - [使用多行系统提示词](#使用多行系统提示词)
+    - [从文件加载系统提示词](#从文件加载系统提示词)
+    - [从 URL 加载系统提示词](#从-url-加载系统提示词)
+    - [从文件加载输入提示词](#从文件加载输入提示词)
+    - [从 URL 加载输入提示词](#从-url-加载输入提示词)
+    - [在提示词中使用 Go 模板](#在提示词中使用-go-模板)
+      - [范例 1：使用 GitHub Actions 变量](#范例-1使用-github-actions-变量)
+      - [范例 2：使用自定义环境变量](#范例-2使用自定义环境变量)
+      - [范例 3：模板文件](#范例-3模板文件)
+      - [范例 4：条件逻辑](#范例-4条件逻辑)
+      - [可用的 GitHub Actions 环境变量](#可用的-github-actions-环境变量)
+    - [使用 Tool Schema 的结构化输出](#使用-tool-schema-的结构化输出)
+      - [基本结构化输出](#基本结构化输出)
+      - [结构化代码审查](#结构化代码审查)
+      - [从文件加载 Tool Schema](#从文件加载-tool-schema)
+      - [Tool Schema 搭配 Go 模板](#tool-schema-搭配-go-模板)
+    - [自托管 / 本地 LLM](#自托管--本地-llm)
+    - [搭配 Azure OpenAI 使用](#搭配-azure-openai-使用)
+    - [使用自定义 CA 证书](#使用自定义-ca-证书)
+      - [证书内容](#证书内容)
+      - [从文件加载证书](#从文件加载证书)
+      - [从 URL 加载证书](#从-url-加载证书)
+    - [搭配 Ollama 使用](#搭配-ollama-使用)
+    - [链接多个 LLM 调用](#链接多个-llm-调用)
+    - [调试模式](#调试模式)
+  - [支持的服务](#支持的服务)
+  - [安全考量](#安全考量)
+  - [授权](#授权)
+  - [贡献](#贡献)
+
 ## 功能特色
 
 - 🔌 连接任何 OpenAI 兼容的 API 端点
@@ -82,9 +123,26 @@ jobs:
           echo "${{ steps.llm.outputs.response }}"
 ```
 
+### 版本固定
+
+您可以固定此 Action 的特定版本：
+
+```yaml
+# 使用主版本（推荐 - 自动获取兼容的更新）
+uses: appleboy/LLM-action@v1
+
+# 使用特定版本（最大稳定性）
+uses: appleboy/LLM-action@v1.0.0
+
+# 使用最新开发版本（不建议用于生产环境）
+uses: appleboy/LLM-action@main
+```
+
+**建议：** 使用主版本标签（例如 `@v1`）以自动获取向后兼容的更新和错误修复。
+
 ### 使用系统提示词
 
-````yaml
+```yaml
 - name: Code Review with LLM
   id: review
   uses: appleboy/LLM-action@v1
@@ -104,7 +162,7 @@ jobs:
 - name: Post Review Comment
   run: |
     echo "${{ steps.review.outputs.response }}"
-````
+```
 
 ### 使用多行系统提示词
 
@@ -136,7 +194,7 @@ jobs:
 
 无需在 YAML 中嵌入冗长的提示词，可以从文件加载：
 
-````yaml
+```yaml
 - name: Code Review with Prompt File
   id: review
   uses: appleboy/LLM-action@v1
@@ -150,7 +208,7 @@ jobs:
       def calculate(x, y):
           return x / y
       ```
-````
+```
 
 或使用 `file://` 前缀：
 
@@ -467,6 +525,47 @@ jobs:
     model: "llama2"
     skip_ssl_verify: "true"
     input_prompt: "用简单的术语解释量子计算"
+```
+
+### 搭配 Azure OpenAI 使用
+
+Azure OpenAI 服务需要不同的 URL 格式。您需要在基础 URL 中指定资源名称和部署 ID：
+
+```yaml
+- name: Call Azure OpenAI
+  id: azure_llm
+  uses: appleboy/LLM-action@v1
+  with:
+    base_url: "https://{your-resource-name}.openai.azure.com/openai/deployments/{deployment-id}"
+    api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+    model: "gpt-4" # 应与您部署的模型相符
+    system_prompt: "你是一个乐于助人的助手"
+    input_prompt: "说明云端计算的优点"
+```
+
+**配置说明：**
+
+- 将 `{your-resource-name}` 替换为您的 Azure OpenAI 资源名称
+- 将 `{deployment-id}` 替换为您的模型部署名称
+- `model` 参数应与您部署的模型相符
+- API 密钥可在 Azure Portal 中您的 OpenAI 资源的「密钥和端点」下找到
+
+**完整参数范例：**
+
+```yaml
+- name: Azure OpenAI Code Review
+  id: azure_review
+  uses: appleboy/LLM-action@v1
+  with:
+    base_url: "https://my-openai-resource.openai.azure.com/openai/deployments/gpt-4-deployment"
+    api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+    model: "gpt-4"
+    system_prompt: "你是一位专业的代码审查员"
+    input_prompt: |
+      审查此代码的最佳实践：
+      ${{ github.event.pull_request.body }}
+    temperature: "0.3"
+    max_tokens: "2000"
 ```
 
 ### 使用自定义 CA 证书
