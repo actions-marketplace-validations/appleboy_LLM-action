@@ -69,9 +69,9 @@ go run .
 
 - `LoadConfig()` reads all inputs from environment variables (GitHub Actions sets these with `INPUT_` prefix)
 - Required: `api_key`, `input_prompt`
-- Optional with defaults: `base_url`, `model`, `temperature`, `max_tokens`, `skip_ssl_verify`, `ca_cert`, `system_prompt`, `debug`
+- Optional with defaults: `base_url`, `model`, `temperature`, `max_tokens`, `skip_ssl_verify`, `ca_cert`, `system_prompt`, `tool_schema`, `debug`
 - Each optional parameter has dedicated parse methods (`parseTemperature`, `parseMaxTokens`, `parseSkipSSL`, `parseDebug`)
-- Prompts (`system_prompt`, `input_prompt`) are loaded via `LoadPrompt()` with Go template rendering
+- Prompts (`system_prompt`, `input_prompt`, `tool_schema`) are loaded via `LoadPrompt()` with Go template rendering
 - CA certificates are loaded via `LoadContent()` without template rendering
 
 **client.go** - OpenAI client initialization
@@ -85,6 +85,14 @@ go run .
 - `BuildMessages()` constructs OpenAI chat completion message array
 - System prompt is prepended if provided, followed by user input prompt
 - Returns slice of `openai.ChatCompletionMessage`
+
+**tool_schema.go** - Structured output via function calling
+
+- `ToolMeta` struct represents the function schema for structured output
+- `ParseToolSchema()` parses JSON schema string to `ToolMeta`
+- `ToOpenAITool()` converts `ToolMeta` to OpenAI tool format
+- `ParseFunctionArguments()` parses function call response into `map[string]string` for GitHub Actions outputs
+- `BuildOutputMap()` combines raw response with parsed tool arguments, handling reserved `response` field
 
 **prompt_loader.go** - Flexible content loading
 
@@ -106,8 +114,9 @@ go run .
    - CA cert: `LoadContent()` → `loadFromFile()`/`loadFromURL()` (no template rendering)
 2. `Config` → `NewClient()` → OpenAI client with custom base URL, SSL settings, and CA cert
 3. `Config` → `BuildMessages()` → OpenAI message format
-4. Client + Messages → `CreateChatCompletion()` → API call to LLM service
-5. API response → Extract content → `gh.SetOutput()` → GitHub Actions output
+4. If `tool_schema` provided: `ParseToolSchema()` → `ToOpenAITool()` → Add tools to request
+5. Client + Messages (+ Tools) → `CreateChatCompletion()` → API call to LLM service
+6. API response → Extract content (or function call arguments) → `BuildOutputMap()` → `gh.SetOutput()` → GitHub Actions outputs
 
 ### GitHub Actions Integration
 
