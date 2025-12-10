@@ -35,6 +35,7 @@ A GitHub Action to interact with OpenAI-compatible LLM services, supporting cust
       - [Code Review with Structured Output](#code-review-with-structured-output)
       - [Tool Schema from File](#tool-schema-from-file)
       - [Tool Schema with Go Templates](#tool-schema-with-go-templates)
+      - [Working with Arrays and Nested Objects](#working-with-arrays-and-nested-objects)
     - [Self-Hosted / Local LLM](#self-hosted--local-llm)
     - [Using with Azure OpenAI](#using-with-azure-openai)
     - [Using Custom CA Certificate](#using-custom-ca-certificate)
@@ -520,6 +521,137 @@ Use Go templates in your schema for dynamic configuration:
         }
       }
 ```
+
+#### Working with Arrays and Nested Objects
+
+GitHub Actions outputs are always strings. When your tool schema returns arrays or nested objects, they are serialized as JSON strings. Use GitHub's `fromJSON()` function to parse them in subsequent steps.
+
+**Array Output Example:**
+
+```yaml
+- name: Extract Keywords
+  id: keywords
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    input_prompt: "Extract keywords from: GitHub Actions automates CI/CD workflows"
+    tool_schema: |
+      {
+        "name": "extract_keywords",
+        "description": "Extract keywords from text",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "keywords": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "List of extracted keywords"
+            }
+          },
+          "required": ["keywords"]
+        }
+      }
+
+- name: Use Keywords Array
+  run: |
+    # keywords output is a JSON string: ["GitHub","Actions","CI/CD","workflows"]
+    # Use fromJSON() to parse it
+    echo "First keyword: ${{ fromJSON(steps.keywords.outputs.keywords)[0] }}"
+    echo "All keywords: ${{ join(fromJSON(steps.keywords.outputs.keywords), ', ') }}"
+```
+
+**Nested Object Example:**
+
+```yaml
+- name: Analyze Code Structure
+  id: analysis
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    input_prompt: "Analyze the structure of a React component"
+    tool_schema: |
+      {
+        "name": "analyze_code",
+        "description": "Analyze code structure",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "component": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "props": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "hooks": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          },
+          "required": ["component"]
+        }
+      }
+
+- name: Use Nested Data
+  run: |
+    # Access nested properties using fromJSON()
+    echo "Component: ${{ fromJSON(steps.analysis.outputs.component).name }}"
+    echo "First prop: ${{ fromJSON(steps.analysis.outputs.component).props[0] }}"
+    echo "Hooks used: ${{ join(fromJSON(steps.analysis.outputs.component).hooks, ', ') }}"
+```
+
+**Dynamic Matrix Example:**
+
+Use array outputs to create dynamic job matrices:
+
+```yaml
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.llm.outputs.targets }}
+    steps:
+      - name: Get Build Targets
+        id: llm
+        uses: appleboy/LLM-action@v1
+        with:
+          api_key: ${{ secrets.OPENAI_API_KEY }}
+          input_prompt: "List the platforms to build for: linux, macos, windows"
+          tool_schema: |
+            {
+              "name": "get_targets",
+              "description": "Get build targets",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "targets": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                },
+                "required": ["targets"]
+              }
+            }
+
+  build:
+    needs: analyze
+    strategy:
+      matrix:
+        target: ${{ fromJSON(needs.analyze.outputs.targets) }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Building for ${{ matrix.target }}"
+```
+
+**Important Notes:**
+
+- All non-string values (arrays, objects, numbers, booleans) are JSON-serialized to strings
+- Use `fromJSON()` to convert the string back to its original type
+- For large integers, be aware of potential floating-point precision issues in JSON parsing
+- Nested `fromJSON()` calls may be needed for deeply nested structures
 
 ### Self-Hosted / Local LLM
 

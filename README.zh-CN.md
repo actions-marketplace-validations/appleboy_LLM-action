@@ -35,6 +35,7 @@
       - [结构化代码审查](#结构化代码审查)
       - [从文件加载 Tool Schema](#从文件加载-tool-schema)
       - [Tool Schema 搭配 Go 模板](#tool-schema-搭配-go-模板)
+      - [处理数组与嵌套对象](#处理数组与嵌套对象)
     - [自托管 / 本地 LLM](#自托管--本地-llm)
     - [搭配 Azure OpenAI 使用](#搭配-azure-openai-使用)
     - [使用自定义 CA 证书](#使用自定义-ca-证书)
@@ -520,6 +521,137 @@ uses: appleboy/LLM-action@main
         }
       }
 ```
+
+#### 处理数组与嵌套对象
+
+GitHub Actions 的输出永远是字符串。当你的 tool schema 返回数组或嵌套对象时，它们会被序列化为 JSON 字符串。在后续步骤中使用 GitHub 的 `fromJSON()` 函数来解析它们。
+
+**数组输出范例：**
+
+```yaml
+- name: 提取关键字
+  id: keywords
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    input_prompt: "从以下文字提取关键字：GitHub Actions 自动化 CI/CD 工作流程"
+    tool_schema: |
+      {
+        "name": "extract_keywords",
+        "description": "从文字中提取关键字",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "keywords": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "提取的关键字列表"
+            }
+          },
+          "required": ["keywords"]
+        }
+      }
+
+- name: 使用关键字数组
+  run: |
+    # keywords 输出是 JSON 字符串：["GitHub","Actions","CI/CD","工作流程"]
+    # 使用 fromJSON() 来解析
+    echo "第一个关键字: ${{ fromJSON(steps.keywords.outputs.keywords)[0] }}"
+    echo "所有关键字: ${{ join(fromJSON(steps.keywords.outputs.keywords), ', ') }}"
+```
+
+**嵌套对象范例：**
+
+```yaml
+- name: 分析代码结构
+  id: analysis
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    input_prompt: "分析一个 React 组件的结构"
+    tool_schema: |
+      {
+        "name": "analyze_code",
+        "description": "分析代码结构",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "component": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "props": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "hooks": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          },
+          "required": ["component"]
+        }
+      }
+
+- name: 使用嵌套数据
+  run: |
+    # 使用 fromJSON() 访问嵌套属性
+    echo "组件: ${{ fromJSON(steps.analysis.outputs.component).name }}"
+    echo "第一个 prop: ${{ fromJSON(steps.analysis.outputs.component).props[0] }}"
+    echo "使用的 hooks: ${{ join(fromJSON(steps.analysis.outputs.component).hooks, ', ') }}"
+```
+
+**动态 Matrix 范例：**
+
+使用数组输出来创建动态的 job matrix：
+
+```yaml
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.llm.outputs.targets }}
+    steps:
+      - name: 获取构建目标
+        id: llm
+        uses: appleboy/LLM-action@v1
+        with:
+          api_key: ${{ secrets.OPENAI_API_KEY }}
+          input_prompt: "列出要构建的平台：linux、macos、windows"
+          tool_schema: |
+            {
+              "name": "get_targets",
+              "description": "获取构建目标",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "targets": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                },
+                "required": ["targets"]
+              }
+            }
+
+  build:
+    needs: analyze
+    strategy:
+      matrix:
+        target: ${{ fromJSON(needs.analyze.outputs.targets) }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "正在为 ${{ matrix.target }} 构建"
+```
+
+**重要注意事项：**
+
+- 所有非字符串值（数组、对象、数字、布尔值）都会被 JSON 序列化为字符串
+- 使用 `fromJSON()` 将字符串转换回原始类型
+- 对于大整数，请注意 JSON 解析中可能的浮点数精度问题
+- 深层嵌套结构可能需要多次调用 `fromJSON()`
 
 ### 自托管 / 本地 LLM
 

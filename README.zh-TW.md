@@ -35,6 +35,7 @@
       - [結構化程式碼審查](#結構化程式碼審查)
       - [從檔案載入 Tool Schema](#從檔案載入-tool-schema)
       - [Tool Schema 搭配 Go 模板](#tool-schema-搭配-go-模板)
+      - [處理陣列與巢狀物件](#處理陣列與巢狀物件)
     - [自架 / 本地 LLM](#自架--本地-llm)
     - [搭配 Azure OpenAI 使用](#搭配-azure-openai-使用)
     - [使用自訂 CA 憑證](#使用自訂-ca-憑證)
@@ -520,6 +521,137 @@ uses: appleboy/LLM-action@main
         }
       }
 ```
+
+#### 處理陣列與巢狀物件
+
+GitHub Actions 的輸出永遠是字串。當你的 tool schema 回傳陣列或巢狀物件時，它們會被序列化為 JSON 字串。在後續步驟中使用 GitHub 的 `fromJSON()` 函數來解析它們。
+
+**陣列輸出範例：**
+
+```yaml
+- name: 擷取關鍵字
+  id: keywords
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    input_prompt: "從以下文字擷取關鍵字：GitHub Actions 自動化 CI/CD 工作流程"
+    tool_schema: |
+      {
+        "name": "extract_keywords",
+        "description": "從文字中擷取關鍵字",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "keywords": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "擷取的關鍵字列表"
+            }
+          },
+          "required": ["keywords"]
+        }
+      }
+
+- name: 使用關鍵字陣列
+  run: |
+    # keywords 輸出是 JSON 字串：["GitHub","Actions","CI/CD","工作流程"]
+    # 使用 fromJSON() 來解析
+    echo "第一個關鍵字: ${{ fromJSON(steps.keywords.outputs.keywords)[0] }}"
+    echo "所有關鍵字: ${{ join(fromJSON(steps.keywords.outputs.keywords), ', ') }}"
+```
+
+**巢狀物件範例：**
+
+```yaml
+- name: 分析程式碼結構
+  id: analysis
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    input_prompt: "分析一個 React 元件的結構"
+    tool_schema: |
+      {
+        "name": "analyze_code",
+        "description": "分析程式碼結構",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "component": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "props": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "hooks": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          },
+          "required": ["component"]
+        }
+      }
+
+- name: 使用巢狀資料
+  run: |
+    # 使用 fromJSON() 存取巢狀屬性
+    echo "元件: ${{ fromJSON(steps.analysis.outputs.component).name }}"
+    echo "第一個 prop: ${{ fromJSON(steps.analysis.outputs.component).props[0] }}"
+    echo "使用的 hooks: ${{ join(fromJSON(steps.analysis.outputs.component).hooks, ', ') }}"
+```
+
+**動態 Matrix 範例：**
+
+使用陣列輸出來建立動態的 job matrix：
+
+```yaml
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.llm.outputs.targets }}
+    steps:
+      - name: 取得建置目標
+        id: llm
+        uses: appleboy/LLM-action@v1
+        with:
+          api_key: ${{ secrets.OPENAI_API_KEY }}
+          input_prompt: "列出要建置的平台：linux、macos、windows"
+          tool_schema: |
+            {
+              "name": "get_targets",
+              "description": "取得建置目標",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "targets": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                },
+                "required": ["targets"]
+              }
+            }
+
+  build:
+    needs: analyze
+    strategy:
+      matrix:
+        target: ${{ fromJSON(needs.analyze.outputs.targets) }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "正在為 ${{ matrix.target }} 建置"
+```
+
+**重要注意事項：**
+
+- 所有非字串值（陣列、物件、數字、布林值）都會被 JSON 序列化為字串
+- 使用 `fromJSON()` 將字串轉換回原始類型
+- 對於大整數，請注意 JSON 解析中可能的浮點數精度問題
+- 深層巢狀結構可能需要多次呼叫 `fromJSON()`
 
 ### 自架 / 本地 LLM
 
