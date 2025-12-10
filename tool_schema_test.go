@@ -115,14 +115,14 @@ func TestToOpenAITool(t *testing.T) {
 	meta := &ToolMeta{
 		Name:        "get_weather",
 		Description: "Get the current weather for a location",
-		Parameters: map[string]interface{}{
+		Parameters: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"location": map[string]interface{}{
+			"properties": map[string]any{
+				"location": map[string]any{
 					"type":        "string",
 					"description": "The city and state, e.g. San Francisco, CA",
 				},
-				"unit": map[string]interface{}{
+				"unit": map[string]any{
 					"type": "string",
 					"enum": []string{"celsius", "fahrenheit"},
 				},
@@ -160,7 +160,7 @@ func TestToOpenAITool(t *testing.T) {
 func TestToOpenAIToolMinimal(t *testing.T) {
 	meta := &ToolMeta{
 		Name:       "minimal_function",
-		Parameters: map[string]interface{}{},
+		Parameters: map[string]any{},
 	}
 
 	tool := meta.ToOpenAITool()
@@ -224,13 +224,13 @@ func TestParseToolSchemaWithComplexParameters(t *testing.T) {
 		t.Fatal("expected parameters to be non-nil")
 	}
 
-	props, ok := params["properties"].(map[string]interface{})
+	props, ok := params["properties"].(map[string]any)
 	if !ok {
 		t.Fatal("expected properties to be a map")
 	}
 
 	// Check score property
-	score, ok := props["score"].(map[string]interface{})
+	score, ok := props["score"].(map[string]any)
 	if !ok {
 		t.Fatal("expected score property to be a map")
 	}
@@ -239,7 +239,7 @@ func TestParseToolSchemaWithComplexParameters(t *testing.T) {
 	}
 
 	// Check issues property (array)
-	issues, ok := props["issues"].(map[string]interface{})
+	issues, ok := props["issues"].(map[string]any)
 	if !ok {
 		t.Fatal("expected issues property to be a map")
 	}

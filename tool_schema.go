@@ -9,9 +9,9 @@ import (
 
 // ToolMeta represents the function schema structure for structured output
 type ToolMeta struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Parameters  map[string]any `json:"parameters"`
 }
 
 // ParseToolSchema parses JSON string to ToolMeta
@@ -52,7 +52,7 @@ func ParseFunctionArguments(jsonStr string) (map[string]string, error) {
 		return map[string]string{}, nil
 	}
 
-	var args map[string]interface{}
+	var args map[string]any
 	if err := json.Unmarshal([]byte(jsonStr), &args); err != nil {
 		return nil, fmt.Errorf("failed to parse function arguments: %w", err)
 	}
