@@ -6,7 +6,55 @@
 [![Trivy Security Scan](https://github.com/appleboy/LLM-action/actions/workflows/trivy.yml/badge.svg)](https://github.com/appleboy/LLM-action/actions/workflows/trivy.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/appleboy/LLM-action)](https://goreportcard.com/report/github.com/appleboy/LLM-action)
 
-A GitHub Action to interact with OpenAI Compatible LLM services. This action allows you to connect to any OpenAI-compatible API endpoint (including local or self-hosted services) and get responses that can be used in your workflow.
+A GitHub Action to interact with OpenAI-compatible LLM services, supporting custom endpoints, self-hosted models (Ollama, LocalAI, vLLM), SSL/CA certificates, Go template prompts, and structured output via function calling.
+
+## Table of Contents
+
+- [LLM Action](#llm-action)
+  - [Table of Contents](#table-of-contents)
+  - [Features](#features)
+  - [Inputs](#inputs)
+  - [Outputs](#outputs)
+  - [Usage Examples](#usage-examples)
+    - [Basic Example](#basic-example)
+    - [Version Pinning](#version-pinning)
+    - [With System Prompt](#with-system-prompt)
+    - [With Multiline System Prompt](#with-multiline-system-prompt)
+    - [System Prompt from File](#system-prompt-from-file)
+    - [System Prompt from URL](#system-prompt-from-url)
+    - [Input Prompt from File](#input-prompt-from-file)
+    - [Input Prompt from URL](#input-prompt-from-url)
+    - [Using Go Templates in Prompts](#using-go-templates-in-prompts)
+      - [Example 1: Using GitHub Actions Variables](#example-1-using-github-actions-variables)
+      - [Example 2: Using Custom Environment Variables](#example-2-using-custom-environment-variables)
+      - [Example 3: Template in File](#example-3-template-in-file)
+      - [Example 4: Conditional Logic](#example-4-conditional-logic)
+      - [Available GitHub Actions Environment Variables](#available-github-actions-environment-variables)
+    - [Structured Output with Tool Schema](#structured-output-with-tool-schema)
+      - [Basic Structured Output](#basic-structured-output)
+      - [Code Review with Structured Output](#code-review-with-structured-output)
+      - [Tool Schema from File](#tool-schema-from-file)
+      - [Tool Schema with Go Templates](#tool-schema-with-go-templates)
+      - [Working with Arrays and Nested Objects](#working-with-arrays-and-nested-objects)
+    - [Self-Hosted / Local LLM](#self-hosted--local-llm)
+    - [Using with Azure OpenAI](#using-with-azure-openai)
+    - [Using Custom CA Certificate](#using-custom-ca-certificate)
+      - [Certificate Content](#certificate-content)
+      - [Certificate from File](#certificate-from-file)
+      - [Certificate from URL](#certificate-from-url)
+    - [Using with Ollama](#using-with-ollama)
+    - [Chain Multiple LLM Calls](#chain-multiple-llm-calls)
+    - [Debug Mode](#debug-mode)
+    - [Custom HTTP Headers](#custom-http-headers)
+      - [Default Headers](#default-headers)
+      - [Custom Headers](#custom-headers)
+      - [Single Line Format](#single-line-format)
+      - [Multiline Format](#multiline-format)
+      - [Headers with Custom Authentication](#headers-with-custom-authentication)
+  - [Supported Services](#supported-services)
+  - [Security Considerations](#security-considerations)
+  - [License](#license)
+  - [Contributing](#contributing)
 
 ## Features
 
@@ -14,30 +62,50 @@ A GitHub Action to interact with OpenAI Compatible LLM services. This action all
 - 🔐 Support for custom API keys
 - 🔧 Configurable base URL for self-hosted services
 - 🚫 Optional SSL certificate verification skip
+- 🔒 Custom CA certificate support for self-signed certificates
 - 🎯 System prompt support for context setting
 - 📝 Output response available for subsequent actions
 - 🎛️ Configurable temperature and max tokens
 - 🐛 Debug mode with secure API key masking
+- 🎨 Go template support for dynamic prompts with environment variables
+- 🛠️ Structured output via function calling (tool schema support)
+- 📋 Custom HTTP headers support for log analysis and custom authentication
 
 ## Inputs
 
-| Input | Description | Required | Default |
-|-------|-------------|----------|---------|
-| `base_url` | Base URL for OpenAI Compatible API endpoint | No | `https://api.openai.com/v1` |
-| `api_key` | API Key for authentication | Yes | - |
-| `model` | Model name to use | No | `gpt-4o` |
-| `skip_ssl_verify` | Skip SSL certificate verification | No | `false` |
-| `system_prompt` | System prompt to set the context | No | `''` |
-| `input_prompt` | User input prompt for the LLM | Yes | - |
-| `temperature` | Temperature for response randomness (0.0-2.0) | No | `0.7` |
-| `max_tokens` | Maximum tokens in the response | No | `1000` |
-| `debug` | Enable debug mode to print all parameters (API key will be masked) | No | `false` |
+| Input             | Description                                                                                                                | Required | Default                     |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------- |
+| `base_url`        | Base URL for OpenAI Compatible API endpoint                                                                                | No       | `https://api.openai.com/v1` |
+| `api_key`         | API Key for authentication                                                                                                 | Yes      | -                           |
+| `model`           | Model name to use                                                                                                          | No       | `gpt-4o`                    |
+| `skip_ssl_verify` | Skip SSL certificate verification                                                                                          | No       | `false`                     |
+| `ca_cert`         | Custom CA certificate. Supports certificate content, file path, or URL                                                     | No       | `''`                        |
+| `system_prompt`   | System prompt to set the context. Supports plain text, file path, or URL. Supports Go templates with environment variables | No       | `''`                        |
+| `input_prompt`    | User input prompt for the LLM. Supports plain text, file path, or URL. Supports Go templates with environment variables    | Yes      | -                           |
+| `tool_schema`     | JSON schema for structured output via function calling. Supports plain text, file path, or URL. Supports Go templates      | No       | `''`                        |
+| `temperature`     | Temperature for response randomness (0.0-2.0)                                                                              | No       | `0.7`                       |
+| `max_tokens`      | Maximum tokens in the response                                                                                             | No       | `1000`                      |
+| `debug`           | Enable debug mode to print all parameters (API key will be masked)                                                         | No       | `false`                     |
+| `headers`         | Custom HTTP headers for API requests. Format: `Header1:Value1,Header2:Value2` or multiline                                 | No       | `''`                        |
 
 ## Outputs
 
-| Output | Description |
-|--------|-------------|
-| `response` | The response from the LLM |
+| Output     | Description                                                                                   |
+| ---------- | --------------------------------------------------------------------------------------------- |
+| `response` | The raw response from the LLM (always available)                                              |
+| `<field>`  | When using tool_schema, each field from the function arguments JSON becomes a separate output |
+
+**Output Behavior:**
+
+- The `response` output is **always available**, containing the raw LLM response
+- When using `tool_schema`, the function arguments are parsed and each field is added as a separate output in addition to `response`
+- **Reserved field:** If your tool schema defines a field named `response`, it will be **skipped** and a warning will be displayed. This is because `response` is reserved for the raw LLM output
+
+**Example:** If your schema defines `city` and `country` fields, the outputs will be:
+
+- `steps.<id>.outputs.response` - The raw JSON response
+- `steps.<id>.outputs.city` - The city field value
+- `steps.<id>.outputs.country` - The country field value
 
 ## Usage Examples
 
@@ -56,7 +124,7 @@ jobs:
         uses: appleboy/LLM-action@v1
         with:
           api_key: ${{ secrets.OPENAI_API_KEY }}
-          input_prompt: 'What is GitHub Actions?'
+          input_prompt: "What is GitHub Actions?"
 
       - name: Use LLM Response
         run: |
@@ -64,29 +132,46 @@ jobs:
           echo "${{ steps.llm.outputs.response }}"
 ```
 
-### With System Prompt
+### Version Pinning
+
+You can pin to specific versions of this action:
 
 ```yaml
+# Use major version (recommended - automatically gets compatible updates)
+uses: appleboy/LLM-action@v1
+
+# Use specific version (for maximum stability)
+uses: appleboy/LLM-action@v1.0.0
+
+# Use latest development version (not recommended for production)
+uses: appleboy/LLM-action@main
+```
+
+**Recommendation:** Use the major version tag (e.g., `@v1`) to automatically receive backward-compatible updates and bug fixes.
+
+### With System Prompt
+
+````yaml
 - name: Code Review with LLM
   id: review
   uses: appleboy/LLM-action@v1
   with:
     api_key: ${{ secrets.OPENAI_API_KEY }}
-    model: 'gpt-4'
-    system_prompt: 'You are a code reviewer. Provide constructive feedback on code quality, best practices, and potential issues.'
+    model: "gpt-4"
+    system_prompt: "You are a code reviewer. Provide constructive feedback on code quality, best practices, and potential issues."
     input_prompt: |
       Review this code:
       ```python
       def add(a, b):
           return a + b
       ```
-    temperature: '0.3'
-    max_tokens: '2000'
+    temperature: "0.3"
+    max_tokens: "2000"
 
 - name: Post Review Comment
   run: |
     echo "${{ steps.review.outputs.response }}"
-```
+````
 
 ### With Multiline System Prompt
 
@@ -96,7 +181,7 @@ jobs:
   uses: appleboy/LLM-action@v1
   with:
     api_key: ${{ secrets.OPENAI_API_KEY }}
-    model: 'gpt-4'
+    model: "gpt-4"
     system_prompt: |
       You are an expert code reviewer with deep knowledge of software engineering best practices.
 
@@ -110,9 +195,463 @@ jobs:
     input_prompt: |
       Review the following pull request changes:
       ${{ github.event.pull_request.body }}
-    temperature: '0.3'
-    max_tokens: '2000'
+    temperature: "0.3"
+    max_tokens: "2000"
 ```
+
+### System Prompt from File
+
+Instead of embedding long prompts in YAML, you can load them from a file:
+
+````yaml
+- name: Code Review with Prompt File
+  id: review
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    model: "gpt-4"
+    system_prompt: ".github/prompts/code-review.txt"
+    input_prompt: |
+      Review this code:
+      ```python
+      def calculate(x, y):
+          return x / y
+      ```
+````
+
+Or using `file://` prefix:
+
+```yaml
+- name: Code Review with File URI
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    system_prompt: "file://.github/prompts/code-review.txt"
+    input_prompt: "Review the main.go file"
+```
+
+### System Prompt from URL
+
+Load prompts from a remote URL:
+
+```yaml
+- name: Code Review with Remote Prompt
+  id: review
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    model: "gpt-4"
+    system_prompt: "https://raw.githubusercontent.com/your-org/prompts/main/code-review.txt"
+    input_prompt: |
+      Review this pull request:
+      ${{ github.event.pull_request.body }}
+```
+
+### Input Prompt from File
+
+You can also load the input prompt from a file:
+
+```yaml
+- name: Analyze Code from File
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    model: "gpt-4"
+    system_prompt: "You are a code analyzer"
+    input_prompt: "src/main.go" # Load code from file
+```
+
+### Input Prompt from URL
+
+Load input content from a remote URL:
+
+```yaml
+- name: Analyze Remote Content
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    system_prompt: "You are a content analyzer"
+    input_prompt: "https://raw.githubusercontent.com/user/repo/main/content.txt"
+```
+
+### Using Go Templates in Prompts
+
+Both `system_prompt` and `input_prompt` support Go templates, allowing you to dynamically insert environment variables into your prompts. This is especially useful for GitHub Actions workflows where you want to include context like repository names, branch names, or custom variables.
+
+**Key Features:**
+
+- Access any environment variable using `{{.VAR_NAME}}`
+- Environment variables with `INPUT_` prefix are available both with and without the prefix
+  - Example: `INPUT_MODEL` can be accessed as `{{.MODEL}}` or `{{.INPUT_MODEL}}`
+- All GitHub Actions default environment variables are available (e.g., `GITHUB_REPOSITORY`, `GITHUB_REF_NAME`)
+- Supports full Go template syntax including conditionals and functions
+
+#### Example 1: Using GitHub Actions Variables
+
+```yaml
+- name: Analyze Repository with Context
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    model: "gpt-4o"
+    system_prompt: |
+      You are an expert code analyzer.
+      Focus on the {{.GITHUB_REPOSITORY}} repository.
+    input_prompt: |
+      Please analyze this repository: {{.GITHUB_REPOSITORY}}
+      Current branch: {{.GITHUB_REF_NAME}}
+      Using model: {{.MODEL}}
+
+      Provide insights on code quality and potential improvements.
+```
+
+#### Example 2: Using Custom Environment Variables
+
+```yaml
+- name: Set Custom Variables
+  run: |
+    echo "INPUT_PROJECT_TYPE=web-application" >> $GITHUB_ENV
+    echo "INPUT_LANGUAGE=Go" >> $GITHUB_ENV
+
+- name: Code Review with Custom Context
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    system_prompt: |
+      You are reviewing a {{.PROJECT_TYPE}} written in {{.LANGUAGE}}.
+      Focus on best practices specific to {{.LANGUAGE}} development.
+    input_prompt: |
+      Review the code changes in {{.GITHUB_REPOSITORY}}.
+      Project type: {{.PROJECT_TYPE}}
+      Language: {{.LANGUAGE}}
+```
+
+#### Example 3: Template in File
+
+Create a template file `.github/prompts/review-template.txt`:
+
+```text
+Please review this pull request for {{.GITHUB_REPOSITORY}}.
+
+Repository: {{.GITHUB_REPOSITORY}}
+Branch: {{.GITHUB_REF_NAME}}
+Actor: {{.GITHUB_ACTOR}}
+Model: {{.MODEL}}
+
+Focus on:
+- Code quality
+- Security issues
+- Performance implications
+```
+
+Then use it in your workflow:
+
+```yaml
+- name: Code Review with Template File
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    model: "gpt-4"
+    input_prompt: ".github/prompts/review-template.txt"
+```
+
+#### Example 4: Conditional Logic
+
+```yaml
+- name: Conditional Prompt
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    input_prompt: |
+      Analyze {{.GITHUB_REPOSITORY}}
+      {{if .DEBUG}}
+      Enable verbose output and detailed explanations.
+      {{else}}
+      Provide a concise summary.
+      {{end}}
+```
+
+#### Available GitHub Actions Environment Variables
+
+Common variables you can use in templates:
+
+- `{{.GITHUB_REPOSITORY}}` - Repository name (e.g., `owner/repo`)
+- `{{.GITHUB_REF_NAME}}` - Branch or tag name
+- `{{.GITHUB_ACTOR}}` - Username of the person who triggered the workflow
+- `{{.GITHUB_SHA}}` - Commit SHA
+- `{{.GITHUB_EVENT_NAME}}` - Event that triggered the workflow
+- `{{.GITHUB_WORKFLOW}}` - Workflow name
+- `{{.GITHUB_RUN_ID}}` - Unique workflow run ID
+- `{{.GITHUB_RUN_NUMBER}}` - Unique workflow run number
+- And any other environment variable available in your workflow
+
+### Structured Output with Tool Schema
+
+Use `tool_schema` to get structured JSON output from the LLM using function calling. This is useful when you need the LLM to return data in a specific format that can be easily parsed and used in subsequent workflow steps.
+
+#### Basic Structured Output
+
+```yaml
+- name: Extract City Information
+  id: extract
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    input_prompt: "What is the capital of France?"
+    tool_schema: |
+      {
+        "name": "get_city_info",
+        "description": "Get information about a city",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "city": {
+              "type": "string",
+              "description": "The name of the city"
+            },
+            "country": {
+              "type": "string",
+              "description": "The country where the city is located"
+            }
+          },
+          "required": ["city", "country"]
+        }
+      }
+
+- name: Use Extracted Data
+  run: |
+    echo "City: ${{ steps.extract.outputs.city }}"
+    echo "Country: ${{ steps.extract.outputs.country }}"
+```
+
+#### Code Review with Structured Output
+
+````yaml
+- name: Structured Code Review
+  id: review
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    model: "gpt-4"
+    system_prompt: "You are an expert code reviewer."
+    input_prompt: |
+      Review this code:
+      ```python
+      def divide(a, b):
+          return a / b
+      ```
+    tool_schema: |
+      {
+        "name": "code_review",
+        "description": "Structured code review result",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "integer",
+              "description": "Code quality score from 1-10"
+            },
+            "issues": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "List of identified issues"
+            },
+            "suggestions": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "List of improvement suggestions"
+            }
+          },
+          "required": ["score", "issues", "suggestions"]
+        }
+      }
+
+- name: Process Review Results
+  env:
+    SCORE: ${{ steps.review.outputs.score }}
+    ISSUES: ${{ steps.review.outputs.issues }}
+    SUGGESTIONS: ${{ steps.review.outputs.suggestions }}
+  run: |
+    echo "Score: $SCORE"
+    echo "Issues: $ISSUES"
+    echo "Suggestions: $SUGGESTIONS"
+````
+
+**Why use environment variables instead of direct interpolation?**
+
+- **Automatic escaping**: GitHub Actions automatically handles special characters in environment variables, avoiding shell parsing errors
+- **More secure**: Prevents injection attacks and accidental command execution from LLM outputs
+- **Cleaner code**: The workflow is easier to read and maintain
+
+#### Tool Schema from File
+
+Store your schema in a file for reusability:
+
+```yaml
+- name: Analyze with Schema File
+  id: analyze
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    input_prompt: "Analyze the sentiment of: I love this product!"
+    tool_schema: ".github/schemas/sentiment-analysis.json"
+```
+
+#### Tool Schema with Go Templates
+
+Use Go templates in your schema for dynamic configuration:
+
+```yaml
+- name: Dynamic Schema
+  uses: appleboy/LLM-action@v1
+  env:
+    INPUT_FUNCTION_NAME: analyze_text
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    input_prompt: "Analyze this text"
+    tool_schema: |
+      {
+        "name": "{{.FUNCTION_NAME}}",
+        "description": "Analyze text content",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "result": { "type": "string" }
+          }
+        }
+      }
+```
+
+#### Working with Arrays and Nested Objects
+
+GitHub Actions outputs are always strings. When your tool schema returns arrays or nested objects, they are serialized as JSON strings. Use GitHub's `fromJSON()` function to parse them in subsequent steps.
+
+**Array Output Example:**
+
+```yaml
+- name: Extract Keywords
+  id: keywords
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    input_prompt: "Extract keywords from: GitHub Actions automates CI/CD workflows"
+    tool_schema: |
+      {
+        "name": "extract_keywords",
+        "description": "Extract keywords from text",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "keywords": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "List of extracted keywords"
+            }
+          },
+          "required": ["keywords"]
+        }
+      }
+
+- name: Use Keywords Array
+  run: |
+    # keywords output is a JSON string: ["GitHub","Actions","CI/CD","workflows"]
+    # Use fromJSON() to parse it
+    echo "First keyword: ${{ fromJSON(steps.keywords.outputs.keywords)[0] }}"
+    echo "All keywords: ${{ join(fromJSON(steps.keywords.outputs.keywords), ', ') }}"
+```
+
+**Nested Object Example:**
+
+```yaml
+- name: Analyze Code Structure
+  id: analysis
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    input_prompt: "Analyze the structure of a React component"
+    tool_schema: |
+      {
+        "name": "analyze_code",
+        "description": "Analyze code structure",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "component": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "props": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "hooks": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          },
+          "required": ["component"]
+        }
+      }
+
+- name: Use Nested Data
+  run: |
+    # Access nested properties using fromJSON()
+    echo "Component: ${{ fromJSON(steps.analysis.outputs.component).name }}"
+    echo "First prop: ${{ fromJSON(steps.analysis.outputs.component).props[0] }}"
+    echo "Hooks used: ${{ join(fromJSON(steps.analysis.outputs.component).hooks, ', ') }}"
+```
+
+**Dynamic Matrix Example:**
+
+Use array outputs to create dynamic job matrices:
+
+```yaml
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.llm.outputs.targets }}
+    steps:
+      - name: Get Build Targets
+        id: llm
+        uses: appleboy/LLM-action@v1
+        with:
+          api_key: ${{ secrets.OPENAI_API_KEY }}
+          input_prompt: "List the platforms to build for: linux, macos, windows"
+          tool_schema: |
+            {
+              "name": "get_targets",
+              "description": "Get build targets",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "targets": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                },
+                "required": ["targets"]
+              }
+            }
+
+  build:
+    needs: analyze
+    strategy:
+      matrix:
+        target: ${{ fromJSON(needs.analyze.outputs.targets) }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Building for ${{ matrix.target }}"
+```
+
+**Important Notes:**
+
+- All non-string values (arrays, objects, numbers, booleans) are JSON-serialized to strings
+- Use `fromJSON()` to convert the string back to its original type
+- For large integers, be aware of potential floating-point precision issues in JSON parsing
+- Nested `fromJSON()` calls may be needed for deeply nested structures
 
 ### Self-Hosted / Local LLM
 
@@ -121,11 +660,107 @@ jobs:
   id: local_llm
   uses: appleboy/LLM-action@v1
   with:
-    base_url: 'http://localhost:8080/v1'
-    api_key: 'your-local-api-key'
-    model: 'llama2'
-    skip_ssl_verify: 'true'
-    input_prompt: 'Explain quantum computing in simple terms'
+    base_url: "http://localhost:8080/v1"
+    api_key: "your-local-api-key"
+    model: "llama2"
+    skip_ssl_verify: "true"
+    input_prompt: "Explain quantum computing in simple terms"
+```
+
+### Using with Azure OpenAI
+
+Azure OpenAI Service requires a different URL format. You need to specify your resource name and deployment ID in the base URL:
+
+```yaml
+- name: Call Azure OpenAI
+  id: azure_llm
+  uses: appleboy/LLM-action@v1
+  with:
+    base_url: "https://{your-resource-name}.openai.azure.com/openai/deployments/{deployment-id}"
+    api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+    model: "gpt-4" # This should match your deployment model
+    system_prompt: "You are a helpful assistant"
+    input_prompt: "Explain the benefits of cloud computing"
+```
+
+**Configuration Notes:**
+
+- Replace `{your-resource-name}` with your Azure OpenAI resource name
+- Replace `{deployment-id}` with your model deployment name
+- The `model` parameter should match the model you deployed
+- API key can be found in Azure Portal under your OpenAI resource's "Keys and Endpoint"
+
+**Example with all parameters:**
+
+```yaml
+- name: Azure OpenAI Code Review
+  id: azure_review
+  uses: appleboy/LLM-action@v1
+  with:
+    base_url: "https://my-openai-resource.openai.azure.com/openai/deployments/gpt-4-deployment"
+    api_key: ${{ secrets.AZURE_OPENAI_API_KEY }}
+    model: "gpt-4"
+    system_prompt: "You are an expert code reviewer"
+    input_prompt: |
+      Review this code for best practices:
+      ${{ github.event.pull_request.body }}
+    temperature: "0.3"
+    max_tokens: "2000"
+```
+
+### Using Custom CA Certificate
+
+For self-hosted services with self-signed certificates, you can provide a custom CA certificate. The `ca_cert` input supports three formats:
+
+#### Certificate Content
+
+```yaml
+- name: Call LLM with CA Certificate Content
+  uses: appleboy/LLM-action@v1
+  with:
+    base_url: "https://your-llm-server.local/v1"
+    api_key: ${{ secrets.LLM_API_KEY }}
+    ca_cert: |
+      -----BEGIN CERTIFICATE-----
+      MIIDxTCCAq2gAwIBAgIQAqx...
+      -----END CERTIFICATE-----
+    input_prompt: "Hello, world!"
+```
+
+#### Certificate from File
+
+```yaml
+- name: Call LLM with CA Certificate File
+  uses: appleboy/LLM-action@v1
+  with:
+    base_url: "https://your-llm-server.local/v1"
+    api_key: ${{ secrets.LLM_API_KEY }}
+    ca_cert: "/path/to/ca-cert.pem"
+    input_prompt: "Hello, world!"
+```
+
+Or using `file://` prefix:
+
+```yaml
+- name: Call LLM with CA Certificate File URI
+  uses: appleboy/LLM-action@v1
+  with:
+    base_url: "https://your-llm-server.local/v1"
+    api_key: ${{ secrets.LLM_API_KEY }}
+    ca_cert: "file:///path/to/ca-cert.pem"
+    input_prompt: "Hello, world!"
+```
+
+#### Certificate from URL
+
+```yaml
+- name: Call LLM with CA Certificate from URL
+  uses: appleboy/LLM-action@v1
+  with:
+    base_url: "https://your-llm-server.local/v1"
+    api_key: ${{ secrets.LLM_API_KEY }}
+    ca_cert: "https://your-server.com/ca-cert.pem"
+    input_prompt: "Hello, world!"
 ```
 
 ### Using with Ollama
@@ -135,11 +770,11 @@ jobs:
   id: ollama
   uses: appleboy/LLM-action@v1
   with:
-    base_url: 'http://localhost:11434/v1'
-    api_key: 'ollama'
-    model: 'llama3'
-    system_prompt: 'You are a helpful assistant'
-    input_prompt: 'Write a haiku about programming'
+    base_url: "http://localhost:11434/v1"
+    api_key: "ollama"
+    model: "llama3"
+    system_prompt: "You are a helpful assistant"
+    input_prompt: "Write a haiku about programming"
 ```
 
 ### Chain Multiple LLM Calls
@@ -150,15 +785,15 @@ jobs:
   uses: appleboy/LLM-action@v1
   with:
     api_key: ${{ secrets.OPENAI_API_KEY }}
-    input_prompt: 'Write a short story about a robot'
-    max_tokens: '500'
+    input_prompt: "Write a short story about a robot"
+    max_tokens: "500"
 
 - name: Translate Story
   id: translate
   uses: appleboy/LLM-action@v1
   with:
     api_key: ${{ secrets.OPENAI_API_KEY }}
-    system_prompt: 'You are a translator'
+    system_prompt: "You are a translator"
     input_prompt: |
       Translate the following text to Spanish:
       ${{ steps.generate.outputs.response }}
@@ -182,12 +817,12 @@ Enable debug mode to troubleshoot issues and inspect all parameters:
   uses: appleboy/LLM-action@v1
   with:
     api_key: ${{ secrets.OPENAI_API_KEY }}
-    model: 'gpt-4'
-    system_prompt: 'You are a helpful assistant'
-    input_prompt: 'Explain how GitHub Actions work'
-    temperature: '0.8'
-    max_tokens: '1500'
-    debug: true  # Enable debug mode
+    model: "gpt-4"
+    system_prompt: "You are a helpful assistant"
+    input_prompt: "Explain how GitHub Actions work"
+    temperature: "0.8"
+    max_tokens: "1500"
+    debug: true # Enable debug mode
 ```
 
 **Debug Output Example:**
@@ -212,6 +847,68 @@ main.Config{
 ```
 
 **Security Note:** When debug mode is enabled, the API key is automatically masked (only showing first 4 and last 4 characters) to prevent accidental exposure in logs.
+
+### Custom HTTP Headers
+
+#### Default Headers
+
+Every API request automatically includes the following headers for identification and log analysis:
+
+| Header             | Value                  | Description                             |
+| ------------------ | ---------------------- | --------------------------------------- |
+| `User-Agent`       | `LLM-action/{version}` | Standard User-Agent with action version |
+| `X-Action-Name`    | `appleboy/LLM-action`  | Full name of the GitHub Action          |
+| `X-Action-Version` | `{version}`            | Semantic version of the action          |
+
+These headers help you identify requests from this action in your LLM service logs.
+
+#### Custom Headers
+
+Use the `headers` input to add custom HTTP headers to API requests. This is useful for:
+
+- Adding request tracking IDs for log analysis
+- Custom authentication headers
+- Passing metadata to your LLM service
+
+#### Single Line Format
+
+```yaml
+- name: Call LLM with Custom Headers
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    input_prompt: "Hello, world!"
+    headers: "X-Request-ID:${{ github.run_id }},X-Trace-ID:${{ github.sha }}"
+```
+
+#### Multiline Format
+
+```yaml
+- name: Call LLM with Multiple Headers
+  uses: appleboy/LLM-action@v1
+  with:
+    api_key: ${{ secrets.OPENAI_API_KEY }}
+    input_prompt: "Analyze this code"
+    headers: |
+      X-Request-ID:${{ github.run_id }}
+      X-Trace-ID:${{ github.sha }}
+      X-Environment:production
+      X-Repository:${{ github.repository }}
+```
+
+#### Headers with Custom Authentication
+
+```yaml
+- name: Call Custom LLM Service
+  uses: appleboy/LLM-action@v1
+  with:
+    base_url: "https://your-llm-service.com/v1"
+    api_key: ${{ secrets.LLM_API_KEY }}
+    input_prompt: "Generate a summary"
+    headers: |
+      X-Custom-Auth:${{ secrets.CUSTOM_AUTH_TOKEN }}
+      X-Tenant-ID:my-tenant
+```
 
 ## Supported Services
 

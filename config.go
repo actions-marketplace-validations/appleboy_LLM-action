@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 var (
@@ -18,23 +19,24 @@ type Config struct {
 	APIKey        string
 	Model         string
 	SkipSSLVerify bool
+	CACert        string
 	SystemPrompt  string
 	InputPrompt   string
+	ToolSchema    string
 	Temperature   float64
 	MaxTokens     int
 	Debug         bool
+	Headers       map[string]string
 }
 
 // LoadConfig loads configuration from environment variables
 func LoadConfig() (*Config, error) {
 	config := &Config{
-		BaseURL:      os.Getenv("INPUT_BASE_URL"),
-		APIKey:       os.Getenv("INPUT_API_KEY"),
-		Model:        os.Getenv("INPUT_MODEL"),
-		SystemPrompt: os.Getenv("INPUT_SYSTEM_PROMPT"),
-		InputPrompt:  os.Getenv("INPUT_INPUT_PROMPT"),
-		Temperature:  0.7,  // default
-		MaxTokens:    1000, // default
+		BaseURL:     os.Getenv("INPUT_BASE_URL"),
+		APIKey:      os.Getenv("INPUT_API_KEY"),
+		Model:       os.Getenv("INPUT_MODEL"),
+		Temperature: 0.7,  // default
+		MaxTokens:   1000, // default
 	}
 
 	// Set default base URL if not provided
@@ -46,8 +48,46 @@ func LoadConfig() (*Config, error) {
 	if config.APIKey == "" {
 		return nil, errAPIKeyRequired
 	}
-	if config.InputPrompt == "" {
+
+	// Load input prompt (supports text, file path, or URL)
+	inputPromptInput := os.Getenv("INPUT_INPUT_PROMPT")
+	if inputPromptInput == "" {
 		return nil, errInputPromptRequired
+	}
+	loadedInputPrompt, err := LoadPrompt(inputPromptInput)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load input_prompt: %w", err)
+	}
+	config.InputPrompt = loadedInputPrompt
+
+	// Load system prompt (supports text, file path, or URL)
+	systemPromptInput := os.Getenv("INPUT_SYSTEM_PROMPT")
+	if systemPromptInput != "" {
+		loadedPrompt, err := LoadPrompt(systemPromptInput)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load system_prompt: %w", err)
+		}
+		config.SystemPrompt = loadedPrompt
+	}
+
+	// Load CA certificate (supports content, file path, or URL)
+	caCertInput := os.Getenv("INPUT_CA_CERT")
+	if caCertInput != "" {
+		loadedCACert, err := LoadContent(caCertInput)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load ca_cert: %w", err)
+		}
+		config.CACert = loadedCACert
+	}
+
+	// Load tool schema (supports text, file path, or URL with template rendering)
+	toolSchemaInput := os.Getenv("INPUT_TOOL_SCHEMA")
+	if toolSchemaInput != "" {
+		loadedSchema, err := LoadPrompt(toolSchemaInput)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load tool_schema: %w", err)
+		}
+		config.ToolSchema = loadedSchema
 	}
 
 	// Parse optional parameters
@@ -64,6 +104,10 @@ func LoadConfig() (*Config, error) {
 	}
 
 	if err := config.parseDebug(os.Getenv("INPUT_DEBUG")); err != nil {
+		return nil, err
+	}
+
+	if err := config.parseHeaders(os.Getenv("INPUT_HEADERS")); err != nil {
 		return nil, err
 	}
 
@@ -126,5 +170,44 @@ func (c *Config) parseDebug(s string) error {
 		return fmt.Errorf("invalid debug value: %v", err)
 	}
 	c.Debug = debug
+	return nil
+}
+
+// parseHeaders parses headers string to map
+// Format: "Header1:Value1,Header2:Value2" or multiline "Header1:Value1\nHeader2:Value2"
+func (c *Config) parseHeaders(s string) error {
+	if s == "" {
+		return nil
+	}
+
+	c.Headers = make(map[string]string)
+
+	// Support both comma-separated and newline-separated formats
+	// First normalize newlines to commas for consistent parsing
+	normalized := strings.ReplaceAll(s, "\n", ",")
+
+	pairs := strings.Split(normalized, ",")
+	for _, pair := range pairs {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+
+		// Split on first colon only (value may contain colons)
+		idx := strings.Index(pair, ":")
+		if idx == -1 {
+			return fmt.Errorf("invalid header format: %q (expected 'Key:Value')", pair)
+		}
+
+		key := strings.TrimSpace(pair[:idx])
+		value := strings.TrimSpace(pair[idx+1:])
+
+		if key == "" {
+			return fmt.Errorf("empty header key in: %q", pair)
+		}
+
+		c.Headers[key] = value
+	}
+
 	return nil
 }

@@ -46,10 +46,22 @@ func run() error {
 	}
 
 	// Create OpenAI client
-	client := NewClient(config)
+	client, err := NewClient(config)
+	if err != nil {
+		return fmt.Errorf("failed to create client: %v", err)
+	}
 
 	// Build messages
 	messages := BuildMessages(config)
+
+	// Parse tool schema if provided
+	var toolMeta *ToolMeta
+	if config.ToolSchema != "" {
+		toolMeta, err = ParseToolSchema(config.ToolSchema)
+		if err != nil {
+			return fmt.Errorf("failed to parse tool schema: %v", err)
+		}
+	}
 
 	// Debug: Print messages if debug mode is enabled
 	if config.Debug {
@@ -58,6 +70,14 @@ func run() error {
 			fmt.Fprintf(os.Stderr, "Warning: failed to dump messages: %v\n", err)
 		}
 		fmt.Println("============================")
+
+		if toolMeta != nil {
+			fmt.Println("=== Debug Mode: Tool Schema ===")
+			if err := godump.Dump(toolMeta); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to dump tool schema: %v\n", err)
+			}
+			fmt.Println("===============================")
+		}
 	}
 
 	// Create chat completion request
@@ -66,6 +86,18 @@ func run() error {
 		Messages:    messages,
 		Temperature: float32(config.Temperature),
 		MaxTokens:   config.MaxTokens,
+	}
+
+	// Add tool if schema provided
+	if toolMeta != nil {
+		req.Tools = []openai.Tool{toolMeta.ToOpenAITool()}
+		// Force the model to use this specific function
+		req.ToolChoice = &openai.ToolChoice{
+			Type: openai.ToolTypeFunction,
+			Function: openai.ToolFunction{
+				Name: toolMeta.Name,
+			},
+		}
 	}
 
 	fmt.Println("Sending request to LLM...")
@@ -83,7 +115,25 @@ func run() error {
 		return fmt.Errorf("no response from LLM")
 	}
 
-	response := resp.Choices[0].Message.Content
+	var response string
+	if toolMeta != nil {
+		// Extract function call arguments when tool schema is used
+		if len(resp.Choices[0].Message.ToolCalls) > 0 {
+			// Debug: Print tool call details if debug mode is enabled
+			if config.Debug {
+				fmt.Println("=== Debug Mode: Tool Calls ===")
+				if err := godump.Dump(resp.Choices[0].Message.ToolCalls); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: failed to dump tool calls: %v\n", err)
+				}
+				fmt.Println("==============================")
+			}
+			response = resp.Choices[0].Message.ToolCalls[0].Function.Arguments
+		} else {
+			return fmt.Errorf("expected tool call response but got none")
+		}
+	} else {
+		response = resp.Choices[0].Message.Content
+	}
 
 	// Print response for debugging
 	fmt.Println("--- LLM Response ---")
@@ -91,9 +141,27 @@ func run() error {
 	fmt.Println("--- End Response ---")
 
 	// Set GitHub Actions output
-	if err := gh.SetOutput(map[string]string{
-		"response": response,
-	}); err != nil {
+	var toolArgs map[string]string
+	if toolMeta != nil {
+		// Parse JSON arguments
+		var err error
+		toolArgs, err = ParseFunctionArguments(response)
+		if err != nil {
+			return fmt.Errorf("failed to parse function arguments: %w", err)
+		}
+	}
+
+	// Build output map with raw response and tool arguments
+	output, reservedFieldSkipped := BuildOutputMap(response, toolArgs)
+	if reservedFieldSkipped {
+		fmt.Fprintf(
+			os.Stderr,
+			"Warning: tool schema field '%s' is reserved and will be skipped\n",
+			ReservedOutputField,
+		)
+	}
+
+	if err := gh.SetOutput(output); err != nil {
 		return fmt.Errorf("failed to set output: %v", err)
 	}
 

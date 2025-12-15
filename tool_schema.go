@@ -1,0 +1,100 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+
+	openai "github.com/sashabaranov/go-openai"
+)
+
+// ToolMeta represents the function schema structure for structured output
+type ToolMeta struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Parameters  map[string]any `json:"parameters"`
+}
+
+// ParseToolSchema parses JSON string to ToolMeta
+func ParseToolSchema(jsonStr string) (*ToolMeta, error) {
+	if jsonStr == "" {
+		return nil, nil
+	}
+
+	var meta ToolMeta
+	if err := json.Unmarshal([]byte(jsonStr), &meta); err != nil {
+		return nil, fmt.Errorf("failed to parse tool_schema JSON: %w", err)
+	}
+
+	if meta.Name == "" {
+		return nil, fmt.Errorf("tool_schema must have a 'name' field")
+	}
+
+	return &meta, nil
+}
+
+// ToOpenAITool converts ToolMeta to openai.Tool format
+func (t *ToolMeta) ToOpenAITool() openai.Tool {
+	return openai.Tool{
+		Type: openai.ToolTypeFunction,
+		Function: &openai.FunctionDefinition{
+			Name:        t.Name,
+			Description: t.Description,
+			Parameters:  t.Parameters,
+		},
+	}
+}
+
+// ParseFunctionArguments parses function call arguments JSON string
+// and converts it to a map[string]string for GitHub Actions output.
+// String values are kept as-is, other types are marshaled back to JSON.
+func ParseFunctionArguments(jsonStr string) (map[string]string, error) {
+	if jsonStr == "" {
+		return map[string]string{}, nil
+	}
+
+	var args map[string]any
+	if err := json.Unmarshal([]byte(jsonStr), &args); err != nil {
+		return nil, fmt.Errorf("failed to parse function arguments: %w", err)
+	}
+
+	output := make(map[string]string)
+	for key, value := range args {
+		switch v := value.(type) {
+		case string:
+			output[key] = v
+		default:
+			jsonBytes, err := json.Marshal(v)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal value for key '%s': %w", key, err)
+			}
+			output[key] = string(jsonBytes)
+		}
+	}
+
+	return output, nil
+}
+
+// ReservedOutputField is the reserved field name for raw LLM response
+const ReservedOutputField = "response"
+
+// BuildOutputMap builds the final output map from the raw response and parsed tool arguments.
+// It always includes the raw response under the "response" key.
+// If tool arguments are provided, each field is added to the output, except for the
+// reserved "response" field which will be skipped with a warning.
+// Returns the output map and a boolean indicating if the reserved field was skipped.
+func BuildOutputMap(rawResponse string, toolArgs map[string]string) (map[string]string, bool) {
+	output := map[string]string{
+		ReservedOutputField: rawResponse,
+	}
+
+	reservedFieldSkipped := false
+	for k, v := range toolArgs {
+		if k == ReservedOutputField {
+			reservedFieldSkipped = true
+			continue
+		}
+		output[k] = v
+	}
+
+	return output, reservedFieldSkipped
+}

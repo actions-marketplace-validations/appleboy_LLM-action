@@ -23,11 +23,11 @@ inputs:
     required: false
     default: 'false'
   system_prompt:
-    description: 'System prompt to set the context'
+    description: 'System prompt to set the context. Supports plain text, file path, or URL (http://, https://). For files, use absolute/relative path or file:// prefix. Supports Go templates with environment variables (e.g., {{.GITHUB_REPOSITORY}}, {{.MODEL}}).'
     required: false
     default: ''
   input_prompt:
-    description: 'User input prompt for the LLM'
+    description: 'User input prompt for the LLM. Supports plain text, file path, or URL (http://, https://). For files, use absolute/relative path or file:// prefix. Supports Go templates with environment variables (e.g., {{.GITHUB_REPOSITORY}}, {{.MODEL}}).'
     required: true
   temperature:
     description: 'Temperature for response randomness (0.0-2.0)'
@@ -37,10 +37,18 @@ inputs:
     description: 'Maximum tokens in the response'
     required: false
     default: '1000'
+  tool_schema:
+    description: 'JSON schema for structured output via function calling. Supports plain text, file path, or URL. Supports Go templates with environment variables (e.g., {{.GITHUB_REPOSITORY}}).'
+    required: false
+    default: ''
   debug:
     description: 'Enable debug mode to print all parameters'
     required: false
     default: 'false'
+  headers:
+    description: 'Custom HTTP headers to include in API requests. Format: "Header1:Value1,Header2:Value2" or multiline with one header per line. Useful for log analysis or custom authentication.'
+    required: false
+    default: ''
 
 outputs:
   response:

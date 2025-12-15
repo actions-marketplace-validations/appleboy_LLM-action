@@ -1,9 +1,15 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 )
+
+// testCACertContent is a sample CA certificate content for testing
+const testCACertContent = "-----BEGIN CERTIFICATE-----\nMIIDxTCCAq2gAwIBAgIQAqx...\n-----END CERTIFICATE-----"
 
 func TestLoadConfig(t *testing.T) {
 	tests := []struct {
@@ -238,13 +244,17 @@ func TestConfigParseMaxTokens(t *testing.T) {
 	}
 }
 
-func TestConfigParseSkipSSL(t *testing.T) {
-	tests := []struct {
-		name        string
-		input       string
-		expected    bool
-		expectError bool
-	}{
+// boolParseTestCase defines test cases for boolean parsing functions
+type boolParseTestCase struct {
+	name        string
+	input       string
+	expected    bool
+	expectError bool
+}
+
+// getBoolParseTestCases returns standard test cases for boolean parsing
+func getBoolParseTestCases() []boolParseTestCase {
+	return []boolParseTestCase{
 		{"True lowercase", "true", true, false},
 		{"True uppercase", "TRUE", true, false},
 		{"False lowercase", "false", false, false},
@@ -253,8 +263,10 @@ func TestConfigParseSkipSSL(t *testing.T) {
 		{"Empty string", "", false, false}, // should keep default
 		{"Invalid value", "invalid", false, true},
 	}
+}
 
-	for _, tt := range tests {
+func TestConfigParseSkipSSL(t *testing.T) {
+	for _, tt := range getBoolParseTestCases() {
 		t.Run(tt.name, func(t *testing.T) {
 			config := &Config{SkipSSLVerify: false}
 			err := config.parseSkipSSL(tt.input)
@@ -272,14 +284,542 @@ func TestConfigParseSkipSSL(t *testing.T) {
 	}
 }
 
+func TestLoadConfigWithPromptFromFile(t *testing.T) {
+	// Create temporary directory and files
+	tmpDir := t.TempDir()
+	systemPromptFile := filepath.Join(tmpDir, "system.txt")
+	inputPromptFile := filepath.Join(tmpDir, "input.txt")
+
+	systemContent := "You are a code reviewer"
+	inputContent := "Review this code:\nfunc main() {}"
+
+	if err := os.WriteFile(systemPromptFile, []byte(systemContent), 0o600); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	if err := os.WriteFile(inputPromptFile, []byte(inputContent), 0o600); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	// Test loading from file paths
+	clearEnvVars()
+	os.Setenv("INPUT_API_KEY", "test-key")
+	os.Setenv("INPUT_SYSTEM_PROMPT", systemPromptFile)
+	os.Setenv("INPUT_INPUT_PROMPT", inputPromptFile)
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if config.SystemPrompt != systemContent {
+		t.Errorf("expected system_prompt '%s', got '%s'", systemContent, config.SystemPrompt)
+	}
+	if config.InputPrompt != inputContent {
+		t.Errorf("expected input_prompt '%s', got '%s'", inputContent, config.InputPrompt)
+	}
+
+	clearEnvVars()
+}
+
+func TestLoadConfigWithPromptFromURL(t *testing.T) {
+	// Create test servers
+	systemServer := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			if _, err := w.Write([]byte("System prompt from URL")); err != nil {
+				t.Errorf("failed to write response: %v", err)
+			}
+		}),
+	)
+	defer systemServer.Close()
+
+	inputServer := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			if _, err := w.Write([]byte("Input prompt from URL")); err != nil {
+				t.Errorf("failed to write response: %v", err)
+			}
+		}),
+	)
+	defer inputServer.Close()
+
+	// Test loading from URLs
+	clearEnvVars()
+	os.Setenv("INPUT_API_KEY", "test-key")
+	os.Setenv("INPUT_SYSTEM_PROMPT", systemServer.URL)
+	os.Setenv("INPUT_INPUT_PROMPT", inputServer.URL)
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if config.SystemPrompt != "System prompt from URL" {
+		t.Errorf("expected system_prompt 'System prompt from URL', got '%s'", config.SystemPrompt)
+	}
+	if config.InputPrompt != "Input prompt from URL" {
+		t.Errorf("expected input_prompt 'Input prompt from URL', got '%s'", config.InputPrompt)
+	}
+
+	clearEnvVars()
+}
+
+func TestLoadConfigWithInvalidPromptFile(t *testing.T) {
+	clearEnvVars()
+	os.Setenv("INPUT_API_KEY", "test-key")
+	os.Setenv("INPUT_INPUT_PROMPT", "file:///nonexistent/file.txt")
+
+	_, err := LoadConfig()
+	if err == nil {
+		t.Error("expected error for nonexistent file, got nil")
+	}
+
+	clearEnvVars()
+}
+
+func TestLoadConfigWithInvalidPromptURL(t *testing.T) {
+	// Create a server that returns 404
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		}),
+	)
+	defer server.Close()
+
+	clearEnvVars()
+	os.Setenv("INPUT_API_KEY", "test-key")
+	os.Setenv("INPUT_INPUT_PROMPT", server.URL)
+
+	_, err := LoadConfig()
+	if err == nil {
+		t.Error("expected error for 404 URL, got nil")
+	}
+
+	clearEnvVars()
+}
+
 // Helper function to clear all env vars
 func clearEnvVars() {
 	os.Unsetenv("INPUT_BASE_URL")
 	os.Unsetenv("INPUT_API_KEY")
 	os.Unsetenv("INPUT_MODEL")
 	os.Unsetenv("INPUT_SKIP_SSL_VERIFY")
+	os.Unsetenv("INPUT_CA_CERT")
 	os.Unsetenv("INPUT_SYSTEM_PROMPT")
 	os.Unsetenv("INPUT_INPUT_PROMPT")
+	os.Unsetenv("INPUT_TOOL_SCHEMA")
 	os.Unsetenv("INPUT_TEMPERATURE")
 	os.Unsetenv("INPUT_MAX_TOKENS")
+	os.Unsetenv("INPUT_DEBUG")
+	os.Unsetenv("INPUT_HEADERS")
+}
+
+// contentLoadTestCase represents a test case for content loading (CA cert, tool schema, etc.)
+type contentLoadTestCase struct {
+	name        string
+	inputValue  string
+	expected    string
+	expectError bool
+}
+
+// runContentLoadTests runs table-driven tests for content loading fields
+func runContentLoadTests(
+	t *testing.T,
+	testContent string,
+	testFile string,
+	envVarName string,
+	getConfigValue func(*Config) string,
+) {
+	t.Helper()
+
+	tests := []contentLoadTestCase{
+		{
+			name:        "From direct content",
+			inputValue:  testContent,
+			expected:    testContent,
+			expectError: false,
+		},
+		{
+			name:        "From file path",
+			inputValue:  testFile,
+			expected:    testContent,
+			expectError: false,
+		},
+		{
+			name:        "From file:// URI",
+			inputValue:  "file://" + testFile,
+			expected:    testContent,
+			expectError: false,
+		},
+		{
+			name:        "No value",
+			inputValue:  "",
+			expected:    "",
+			expectError: false,
+		},
+		{
+			name:        "Invalid file path",
+			inputValue:  "file:///nonexistent/file.txt",
+			expected:    "",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clearEnvVars()
+			os.Setenv("INPUT_API_KEY", "test-key")
+			os.Setenv("INPUT_INPUT_PROMPT", "Hello")
+			if tt.inputValue != "" {
+				os.Setenv(envVarName, tt.inputValue)
+			}
+
+			config, err := LoadConfig()
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				}
+				clearEnvVars()
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				clearEnvVars()
+				return
+			}
+
+			actual := getConfigValue(config)
+			if actual != tt.expected {
+				t.Errorf("expected '%s', got '%s'", tt.expected, actual)
+			}
+
+			clearEnvVars()
+		})
+	}
+}
+
+func TestLoadConfigWithCACert(t *testing.T) {
+	tmpDir := t.TempDir()
+	caCertFile := filepath.Join(tmpDir, "ca-cert.pem")
+
+	if err := os.WriteFile(caCertFile, []byte(testCACertContent), 0o600); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	runContentLoadTests(t, testCACertContent, caCertFile, "INPUT_CA_CERT", func(c *Config) string {
+		return c.CACert
+	})
+}
+
+func TestLoadConfigWithCACertFromURL(t *testing.T) {
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			if _, err := w.Write([]byte(testCACertContent)); err != nil {
+				t.Errorf("failed to write response: %v", err)
+			}
+		}),
+	)
+	defer server.Close()
+
+	clearEnvVars()
+	os.Setenv("INPUT_API_KEY", "test-key")
+	os.Setenv("INPUT_INPUT_PROMPT", "Hello")
+	os.Setenv("INPUT_CA_CERT", server.URL)
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if config.CACert != testCACertContent {
+		t.Errorf("expected ca_cert '%s', got '%s'", testCACertContent, config.CACert)
+	}
+
+	clearEnvVars()
+}
+
+func TestConfigParseDebug(t *testing.T) {
+	for _, tt := range getBoolParseTestCases() {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &Config{Debug: false}
+			err := config.parseDebug(tt.input)
+
+			if tt.expectError && err == nil {
+				t.Error("expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if !tt.expectError && config.Debug != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, config.Debug)
+			}
+		})
+	}
+}
+
+// testToolSchemaContent is a sample tool schema JSON for testing
+const testToolSchemaContent = `{
+  "name": "get_city_info",
+  "description": "Get information about a city",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "city": { "type": "string" }
+    },
+    "required": ["city"]
+  }
+}`
+
+func TestLoadConfigWithToolSchema(t *testing.T) {
+	tmpDir := t.TempDir()
+	toolSchemaFile := filepath.Join(tmpDir, "tool-schema.json")
+
+	if err := os.WriteFile(toolSchemaFile, []byte(testToolSchemaContent), 0o600); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	runContentLoadTests(
+		t,
+		testToolSchemaContent,
+		toolSchemaFile,
+		"INPUT_TOOL_SCHEMA",
+		func(c *Config) string {
+			return c.ToolSchema
+		},
+	)
+}
+
+func TestLoadConfigWithToolSchemaFromURL(t *testing.T) {
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			if _, err := w.Write([]byte(testToolSchemaContent)); err != nil {
+				t.Errorf("failed to write response: %v", err)
+			}
+		}),
+	)
+	defer server.Close()
+
+	clearEnvVars()
+	os.Setenv("INPUT_API_KEY", "test-key")
+	os.Setenv("INPUT_INPUT_PROMPT", "Hello")
+	os.Setenv("INPUT_TOOL_SCHEMA", server.URL)
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if config.ToolSchema != testToolSchemaContent {
+		t.Errorf("expected tool_schema '%s', got '%s'", testToolSchemaContent, config.ToolSchema)
+	}
+
+	clearEnvVars()
+}
+
+func TestLoadConfigWithToolSchemaTemplate(t *testing.T) {
+	// Create temporary file with template content
+	tmpDir := t.TempDir()
+	templateFile := filepath.Join(tmpDir, "tool-schema-template.json")
+
+	templateContent := `{
+  "name": "{{.FUNCTION_NAME}}",
+  "description": "Get information",
+  "parameters": {
+    "type": "object",
+    "properties": {}
+  }
+}`
+
+	if err := os.WriteFile(templateFile, []byte(templateContent), 0o600); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	clearEnvVars()
+	os.Setenv("INPUT_API_KEY", "test-key")
+	os.Setenv("INPUT_INPUT_PROMPT", "Hello")
+	os.Setenv("INPUT_TOOL_SCHEMA", templateFile)
+	os.Setenv("INPUT_FUNCTION_NAME", "my_custom_function")
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := `{
+  "name": "my_custom_function",
+  "description": "Get information",
+  "parameters": {
+    "type": "object",
+    "properties": {}
+  }
+}`
+
+	if config.ToolSchema != expected {
+		t.Errorf("expected tool_schema '%s', got '%s'", expected, config.ToolSchema)
+	}
+
+	clearEnvVars()
+	os.Unsetenv("INPUT_FUNCTION_NAME")
+}
+
+func TestConfigParseHeaders(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expected    map[string]string
+		expectError bool
+	}{
+		{
+			name:        "Empty string",
+			input:       "",
+			expected:    nil,
+			expectError: false,
+		},
+		{
+			name:  "Single header",
+			input: "X-Custom-Header:value123",
+			expected: map[string]string{
+				"X-Custom-Header": "value123",
+			},
+			expectError: false,
+		},
+		{
+			name:  "Multiple headers comma separated",
+			input: "X-Request-ID:abc123,X-Trace-ID:trace456",
+			expected: map[string]string{
+				"X-Request-ID": "abc123",
+				"X-Trace-ID":   "trace456",
+			},
+			expectError: false,
+		},
+		{
+			name:  "Multiple headers newline separated",
+			input: "X-Request-ID:abc123\nX-Trace-ID:trace456",
+			expected: map[string]string{
+				"X-Request-ID": "abc123",
+				"X-Trace-ID":   "trace456",
+			},
+			expectError: false,
+		},
+		{
+			name:  "Headers with spaces",
+			input: "  X-Header1 : value1  ,  X-Header2 : value2  ",
+			expected: map[string]string{
+				"X-Header1": "value1",
+				"X-Header2": "value2",
+			},
+			expectError: false,
+		},
+		{
+			name:  "Value with colon",
+			input: "Authorization:Bearer:token:with:colons",
+			expected: map[string]string{
+				"Authorization": "Bearer:token:with:colons",
+			},
+			expectError: false,
+		},
+		{
+			name:  "Empty value",
+			input: "X-Empty-Value:",
+			expected: map[string]string{
+				"X-Empty-Value": "",
+			},
+			expectError: false,
+		},
+		{
+			name:        "Invalid format no colon",
+			input:       "InvalidHeader",
+			expected:    nil,
+			expectError: true,
+		},
+		{
+			name:        "Empty key",
+			input:       ":value",
+			expected:    nil,
+			expectError: true,
+		},
+		{
+			name:  "Skip empty entries",
+			input: "X-Header1:value1,,X-Header2:value2,",
+			expected: map[string]string{
+				"X-Header1": "value1",
+				"X-Header2": "value2",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &Config{}
+			err := config.parseHeaders(tt.input)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if tt.expected == nil {
+				if config.Headers != nil {
+					t.Errorf("expected nil Headers, got %v", config.Headers)
+				}
+				return
+			}
+
+			if len(config.Headers) != len(tt.expected) {
+				t.Errorf("expected %d headers, got %d", len(tt.expected), len(config.Headers))
+				return
+			}
+
+			for key, expectedValue := range tt.expected {
+				if actualValue, ok := config.Headers[key]; !ok {
+					t.Errorf("missing header key: %s", key)
+				} else if actualValue != expectedValue {
+					t.Errorf("header %s: expected '%s', got '%s'", key, expectedValue, actualValue)
+				}
+			}
+		})
+	}
+}
+
+func TestLoadConfigWithHeaders(t *testing.T) {
+	clearEnvVars()
+	os.Setenv("INPUT_API_KEY", "test-key")
+	os.Setenv("INPUT_INPUT_PROMPT", "Hello")
+	os.Setenv("INPUT_HEADERS", "X-Request-ID:test123,X-Trace-ID:trace456")
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := map[string]string{
+		"X-Request-ID": "test123",
+		"X-Trace-ID":   "trace456",
+	}
+
+	if len(config.Headers) != len(expected) {
+		t.Errorf("expected %d headers, got %d", len(expected), len(config.Headers))
+	}
+
+	for key, expectedValue := range expected {
+		if actualValue, ok := config.Headers[key]; !ok {
+			t.Errorf("missing header key: %s", key)
+		} else if actualValue != expectedValue {
+			t.Errorf("header %s: expected '%s', got '%s'", key, expectedValue, actualValue)
+		}
+	}
+
+	clearEnvVars()
 }
