@@ -10,10 +10,17 @@
 
 一个用于与 OpenAI 兼容 LLM 服务交互的 GitHub Action，支持自定义端点、自托管模型（Ollama、LocalAI、vLLM）、SSL/CA 证书、Go template 动态提示词，以及通过 function calling 实现结构化输出。
 
+## 演示文稿
+
+了解如何使用此 Action 打造 AI 驱动的 GitHub 自动化工作流程：
+
+- [打造AI驱动的GitHub自动化工作流程](https://speakerdeck.com/appleboy/da-zao-a-i-qu-dong-de-g-i-t-h-u-b-dong-hua-zuo-liu-cheng) - 涵盖 Tool Schema 结构化输出、LLM 服务无缝切换，以及实际应用场景如代码审查、PR 摘要和 Issue 分类。
+
 ## 目录
 
 - [LLM Action](#llm-action)
   - [目录](#目录)
+  - [演示文稿](#演示文稿)
   - [功能特色](#功能特色)
   - [输入参数](#输入参数)
   - [输出参数](#输出参数)
@@ -92,10 +99,17 @@
 
 ## 输出参数
 
-| 输出       | 说明                                                              |
-| ---------- | ----------------------------------------------------------------- |
-| `response` | 来自 LLM 的原始响应（始终可用）                                   |
-| `<field>`  | 使用 tool_schema 时，函数参数 JSON 中的每个字段都会成为独立的输出 |
+| 输出                                    | 说明                                                              |
+| --------------------------------------- | ----------------------------------------------------------------- |
+| `response`                              | 来自 LLM 的原始响应（始终可用）                                   |
+| `prompt_tokens`                         | 提示词的 token 数量                                               |
+| `completion_tokens`                     | 回复的 token 数量                                                 |
+| `total_tokens`                          | 总 token 使用量                                                   |
+| `prompt_cached_tokens`                  | 提示词中的缓存 token 数量（节省成本，如可用）                     |
+| `completion_reasoning_tokens`           | 推理 token 数量，用于 o1/o3 模型（如可用）                        |
+| `completion_accepted_prediction_tokens` | 已接受的预测 token 数量（如可用）                                 |
+| `completion_rejected_prediction_tokens` | 已拒绝的预测 token 数量（如可用）                                 |
+| `<field>`                               | 使用 tool_schema 时，函数参数 JSON 中的每个字段都会成为独立的输出 |
 
 **输出行为：**
 

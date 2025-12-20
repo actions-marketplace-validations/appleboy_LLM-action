@@ -51,6 +51,7 @@ export INPUT_INPUT_PROMPT="your prompt"
 export INPUT_MODEL="gpt-4o"  # optional
 export INPUT_BASE_URL="https://api.openai.com/v1"  # optional
 export INPUT_CA_CERT="/path/to/ca-cert.pem"  # optional, for self-signed certs
+export INPUT_HEADERS="X-Custom-Header:value"  # optional, custom HTTP headers
 export INPUT_DEBUG="true"  # optional
 go run .
 ```
@@ -69,7 +70,7 @@ go run .
 
 - `LoadConfig()` reads all inputs from environment variables (GitHub Actions sets these with `INPUT_` prefix)
 - Required: `api_key`, `input_prompt`
-- Optional with defaults: `base_url`, `model`, `temperature`, `max_tokens`, `skip_ssl_verify`, `ca_cert`, `system_prompt`, `tool_schema`, `debug`
+- Optional with defaults: `base_url`, `model`, `temperature`, `max_tokens`, `skip_ssl_verify`, `ca_cert`, `system_prompt`, `tool_schema`, `headers`, `debug`
 - Each optional parameter has dedicated parse methods (`parseTemperature`, `parseMaxTokens`, `parseSkipSSL`, `parseDebug`)
 - Prompts (`system_prompt`, `input_prompt`, `tool_schema`) are loaded via `LoadPrompt()` with Go template rendering
 - CA certificates are loaded via `LoadContent()` without template rendering

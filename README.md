@@ -10,10 +10,17 @@
 
 A GitHub Action to interact with OpenAI-compatible LLM services, supporting custom endpoints, self-hosted models (Ollama, LocalAI, vLLM), SSL/CA certificates, Go template prompts, and structured output via function calling.
 
+## Presentation
+
+Learn how to build AI-driven GitHub automation workflows with this action:
+
+- [打造AI驅動的GitHub自動化工作流程](https://speakerdeck.com/appleboy/da-zao-a-i-qu-dong-de-g-i-t-h-u-b-dong-hua-zuo-liu-cheng) - Covers Tool Schema for structured output, seamless LLM service switching, and real-world use cases like code review, PR summaries, and issue classification.
+
 ## Table of Contents
 
 - [LLM Action](#llm-action)
   - [Table of Contents](#table-of-contents)
+  - [Presentation](#presentation)
   - [Features](#features)
   - [Inputs](#inputs)
   - [Outputs](#outputs)
@@ -92,10 +99,17 @@ A GitHub Action to interact with OpenAI-compatible LLM services, supporting cust
 
 ## Outputs
 
-| Output     | Description                                                                                   |
-| ---------- | --------------------------------------------------------------------------------------------- |
-| `response` | The raw response from the LLM (always available)                                              |
-| `<field>`  | When using tool_schema, each field from the function arguments JSON becomes a separate output |
+| Output                                 | Description                                                                                   |
+| -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `response`                             | The raw response from the LLM (always available)                                              |
+| `prompt_tokens`                        | Number of tokens in the prompt                                                                |
+| `completion_tokens`                    | Number of tokens in the completion                                                            |
+| `total_tokens`                         | Total number of tokens used                                                                   |
+| `prompt_cached_tokens`                 | Number of cached tokens in the prompt (cost saving, if available)                             |
+| `completion_reasoning_tokens`          | Number of reasoning tokens for o1/o3 models (if available)                                    |
+| `completion_accepted_prediction_tokens`| Number of accepted prediction tokens (if available)                                           |
+| `completion_rejected_prediction_tokens`| Number of rejected prediction tokens (if available)                                           |
+| `<field>`                              | When using tool_schema, each field from the function arguments JSON becomes a separate output |
 
 **Output Behavior:**
 
