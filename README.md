@@ -10,10 +10,17 @@
 
 A GitHub Action to interact with OpenAI-compatible LLM services, supporting custom endpoints, self-hosted models (Ollama, LocalAI, vLLM), SSL/CA certificates, Go template prompts, and structured output via function calling.
 
+## Presentation
+
+Learn how to build AI-driven GitHub automation workflows with this action:
+
+- [打造AI驅動的GitHub自動化工作流程](https://speakerdeck.com/appleboy/da-zao-a-i-qu-dong-de-g-i-t-h-u-b-dong-hua-zuo-liu-cheng) - Covers Tool Schema for structured output, seamless LLM service switching, and real-world use cases like code review, PR summaries, and issue classification.
+
 ## Table of Contents
 
 - [LLM Action](#llm-action)
   - [Table of Contents](#table-of-contents)
+  - [Presentation](#presentation)
   - [Features](#features)
   - [Inputs](#inputs)
   - [Outputs](#outputs)
