@@ -16,11 +16,30 @@
 
 - [打造AI驅動的GitHub自動化工作流程](https://speakerdeck.com/appleboy/da-zao-a-i-qu-dong-de-g-i-t-h-u-b-dong-hua-zuo-liu-cheng) - 涵蓋 Tool Schema 結構化輸出、LLM 服務無縫切換，以及實際應用場景如程式碼審查、PR 摘要和 Issue 分類。
 
+## 為什麼選擇 LLM Action？
+
+隨著 AI 輔助開發成為主流，將 LLM 整合到 CI/CD 流程中對現代軟體團隊來說至關重要。然而，現有的解決方案通常面臨以下挑戰：
+
+- **廠商綁定**：大多數 GitHub Actions 只支援單一 LLM 服務商，難以切換服務或比較不同模型
+- **彈性不足**：寫死的提示詞和僵化的設定無法適應多樣化的專案需求
+- **安全疑慮**：自架或隔離網路環境需要自訂端點和憑證管理，許多 Actions 不支援
+- **非結構化輸出**：原始 LLM 回應難以解析，不利於自動化工作流程使用
+
+**LLM Action** 的誕生就是為了解決這些問題：
+
+1. **通用相容性** - 一個 Action 支援所有 OpenAI 相容服務（OpenAI、Azure、Ollama、LocalAI、vLLM 等）
+2. **動態提示詞** - Go 模板讓你注入環境變數，打造情境感知的提示詞
+3. **結構化輸出** - Tool schema（function calling）確保一致、可解析的 JSON 回應，便於自動化處理
+4. **企業級支援** - 完整支援自訂 CA 憑證、SSL 設定和 HTTP headers，適用於安全部署環境
+
+無論你要打造自動化程式碼審查、PR 摘要、Issue 分類，或任何 AI 驅動的工作流程，LLM Action 都能讓你靈活使用任何 LLM 服務，同時保持工作流程的可移植性和可維護性。
+
 ## 目錄
 
 - [LLM Action](#llm-action)
-  - [目錄](#目錄)
   - [簡報](#簡報)
+  - [為什麼選擇 LLM Action？](#為什麼選擇-llm-action)
+  - [目錄](#目錄)
   - [功能特色](#功能特色)
   - [輸入參數](#輸入參數)
   - [輸出參數](#輸出參數)
