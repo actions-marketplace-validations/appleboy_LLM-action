@@ -16,11 +16,30 @@ Learn how to build AI-driven GitHub automation workflows with this action:
 
 - [打造AI驅動的GitHub自動化工作流程](https://speakerdeck.com/appleboy/da-zao-a-i-qu-dong-de-g-i-t-h-u-b-dong-hua-zuo-liu-cheng) - Covers Tool Schema for structured output, seamless LLM service switching, and real-world use cases like code review, PR summaries, and issue classification.
 
+## Why LLM Action?
+
+As AI-powered development becomes mainstream, integrating LLMs into CI/CD pipelines is essential for modern software teams. However, existing solutions often face these challenges:
+
+- **Vendor Lock-in**: Most GitHub Actions only support a single LLM provider, making it difficult to switch services or compare models
+- **Limited Flexibility**: Hard-coded prompts and rigid configurations don't adapt to diverse project needs
+- **Security Concerns**: Self-hosted or air-gapped environments require custom endpoints and certificate management that many actions don't support
+- **Unstructured Output**: Raw LLM responses are hard to parse and use in automated workflows
+
+**LLM Action** was created to solve these problems by providing:
+
+1. **Universal Compatibility** - One action for all OpenAI-compatible services (OpenAI, Azure, Ollama, LocalAI, vLLM, and more)
+2. **Dynamic Prompts** - Go templates let you inject environment variables and build context-aware prompts
+3. **Structured Output** - Tool schema (function calling) ensures consistent, parseable JSON responses for automation
+4. **Enterprise Ready** - Full support for custom CA certificates, SSL configuration, and HTTP headers for secure deployments
+
+Whether you're building automated code reviews, PR summaries, issue classification, or any AI-driven workflow, LLM Action gives you the flexibility to use any LLM service while keeping your workflows portable and maintainable.
+
 ## Table of Contents
 
 - [LLM Action](#llm-action)
-  - [Table of Contents](#table-of-contents)
   - [Presentation](#presentation)
+  - [Why LLM Action?](#why-llm-action)
+  - [Table of Contents](#table-of-contents)
   - [Features](#features)
   - [Inputs](#inputs)
   - [Outputs](#outputs)
