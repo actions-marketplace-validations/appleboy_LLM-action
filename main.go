@@ -27,6 +27,120 @@ func maskAPIKey(apiKey string) string {
 	return apiKey[:4] + "****" + apiKey[len(apiKey)-4:]
 }
 
+// printTokenUsage prints token usage statistics to stdout
+func printTokenUsage(usage openai.Usage) {
+	fmt.Println("--- Token Usage ---")
+	fmt.Printf("Prompt Tokens: %d\n", usage.PromptTokens)
+	fmt.Printf("Completion Tokens: %d\n", usage.CompletionTokens)
+	fmt.Printf("Total Tokens: %d\n", usage.TotalTokens)
+	if usage.PromptTokensDetails != nil {
+		fmt.Printf("Cached Tokens: %d\n", usage.PromptTokensDetails.CachedTokens)
+	}
+	if d := usage.CompletionTokensDetails; d != nil {
+		fmt.Printf("Reasoning Tokens: %d\n", d.ReasoningTokens)
+		fmt.Printf("Accepted Prediction Tokens: %d\n", d.AcceptedPredictionTokens)
+		fmt.Printf("Rejected Prediction Tokens: %d\n", d.RejectedPredictionTokens)
+	}
+	fmt.Println("--- End Token Usage ---")
+}
+
+// addTokenUsageToOutput adds token usage metrics to the output map
+func addTokenUsageToOutput(output map[string]string, usage openai.Usage) {
+	output["prompt_tokens"] = strconv.Itoa(usage.PromptTokens)
+	output["completion_tokens"] = strconv.Itoa(usage.CompletionTokens)
+	output["total_tokens"] = strconv.Itoa(usage.TotalTokens)
+
+	if usage.PromptTokensDetails != nil {
+		output["prompt_cached_tokens"] = strconv.Itoa(usage.PromptTokensDetails.CachedTokens)
+	}
+
+	if d := usage.CompletionTokensDetails; d != nil {
+		output["completion_reasoning_tokens"] = strconv.Itoa(d.ReasoningTokens)
+		output["completion_accepted_prediction_tokens"] = strconv.Itoa(d.AcceptedPredictionTokens)
+		output["completion_rejected_prediction_tokens"] = strconv.Itoa(d.RejectedPredictionTokens)
+	}
+}
+
+// extractResponse extracts the response content from the API response
+func extractResponse(
+	resp openai.ChatCompletionResponse,
+	toolMeta *ToolMeta,
+	debug bool,
+) (string, error) {
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("no response from LLM")
+	}
+
+	if toolMeta != nil {
+		// Extract function call arguments when tool schema is used
+		if len(resp.Choices[0].Message.ToolCalls) > 0 {
+			// Debug: Print tool call details if debug mode is enabled
+			if debug {
+				fmt.Println("=== Debug Mode: Tool Calls ===")
+				if err := godump.Dump(resp.Choices[0].Message.ToolCalls); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: failed to dump tool calls: %v\n", err)
+				}
+				fmt.Println("==============================")
+			}
+			return resp.Choices[0].Message.ToolCalls[0].Function.Arguments, nil
+		}
+		return "", fmt.Errorf("expected tool call response but got none")
+	}
+
+	return resp.Choices[0].Message.Content, nil
+}
+
+// prepareToolSchema parses and validates the tool schema if provided
+func prepareToolSchema(config *Config) (*ToolMeta, error) {
+	if config.ToolSchema == "" {
+		return nil, nil
+	}
+
+	toolMeta, err := ParseToolSchema(config.ToolSchema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse tool schema: %v", err)
+	}
+
+	// Debug: Print tool schema if debug mode is enabled
+	if config.Debug {
+		fmt.Println("=== Debug Mode: Tool Schema ===")
+		if err := godump.Dump(toolMeta); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to dump tool schema: %v\n", err)
+		}
+		fmt.Println("===============================")
+	}
+
+	return toolMeta, nil
+}
+
+// buildChatRequest creates a chat completion request with optional tool support
+func buildChatRequest(
+	config *Config,
+	messages []openai.ChatCompletionMessage,
+	toolMeta *ToolMeta,
+) openai.ChatCompletionRequest {
+	req := openai.ChatCompletionRequest{
+		Model:       config.Model,
+		Messages:    messages,
+		Temperature: float32(config.Temperature),
+		MaxTokens:   config.MaxTokens,
+	}
+
+	// Add tool if schema provided
+	if toolMeta != nil {
+		req.Tools = []openai.Tool{toolMeta.ToOpenAITool()}
+		// Force the model to use this specific function
+		req.ToolChoice = &openai.ToolChoice{
+			Type: openai.ToolTypeFunction,
+			Function: openai.ToolFunction{
+				Name: toolMeta.Name,
+			},
+		}
+	}
+
+	return req
+}
+
 func run() error {
 	// Load configuration
 	config, err := LoadConfig()
@@ -55,13 +169,10 @@ func run() error {
 	// Build messages
 	messages := BuildMessages(config)
 
-	// Parse tool schema if provided
-	var toolMeta *ToolMeta
-	if config.ToolSchema != "" {
-		toolMeta, err = ParseToolSchema(config.ToolSchema)
-		if err != nil {
-			return fmt.Errorf("failed to parse tool schema: %v", err)
-		}
+	// Parse and validate tool schema if provided
+	toolMeta, err := prepareToolSchema(config)
+	if err != nil {
+		return err
 	}
 
 	// Debug: Print messages if debug mode is enabled
@@ -71,35 +182,10 @@ func run() error {
 			fmt.Fprintf(os.Stderr, "Warning: failed to dump messages: %v\n", err)
 		}
 		fmt.Println("============================")
-
-		if toolMeta != nil {
-			fmt.Println("=== Debug Mode: Tool Schema ===")
-			if err := godump.Dump(toolMeta); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to dump tool schema: %v\n", err)
-			}
-			fmt.Println("===============================")
-		}
 	}
 
-	// Create chat completion request
-	req := openai.ChatCompletionRequest{
-		Model:       config.Model,
-		Messages:    messages,
-		Temperature: float32(config.Temperature),
-		MaxTokens:   config.MaxTokens,
-	}
-
-	// Add tool if schema provided
-	if toolMeta != nil {
-		req.Tools = []openai.Tool{toolMeta.ToOpenAITool()}
-		// Force the model to use this specific function
-		req.ToolChoice = &openai.ToolChoice{
-			Type: openai.ToolTypeFunction,
-			Function: openai.ToolFunction{
-				Name: toolMeta.Name,
-			},
-		}
-	}
+	// Create chat completion request with optional tool support
+	req := buildChatRequest(config, messages, toolMeta)
 
 	fmt.Println("Sending request to LLM...")
 	fmt.Printf("Model: %s\n", config.Model)
@@ -111,29 +197,10 @@ func run() error {
 		return fmt.Errorf("chat completion error: %v", err)
 	}
 
-	// Extract response
-	if len(resp.Choices) == 0 {
-		return fmt.Errorf("no response from LLM")
-	}
-
-	var response string
-	if toolMeta != nil {
-		// Extract function call arguments when tool schema is used
-		if len(resp.Choices[0].Message.ToolCalls) > 0 {
-			// Debug: Print tool call details if debug mode is enabled
-			if config.Debug {
-				fmt.Println("=== Debug Mode: Tool Calls ===")
-				if err := godump.Dump(resp.Choices[0].Message.ToolCalls); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to dump tool calls: %v\n", err)
-				}
-				fmt.Println("==============================")
-			}
-			response = resp.Choices[0].Message.ToolCalls[0].Function.Arguments
-		} else {
-			return fmt.Errorf("expected tool call response but got none")
-		}
-	} else {
-		response = resp.Choices[0].Message.Content
+	// Extract response content
+	response, err := extractResponse(resp, toolMeta, config.Debug)
+	if err != nil {
+		return err
 	}
 
 	// Print response for debugging
@@ -141,20 +208,8 @@ func run() error {
 	fmt.Println(response)
 	fmt.Println("--- End Response ---")
 
-	// Print token usage
-	fmt.Println("--- Token Usage ---")
-	fmt.Printf("Prompt Tokens: %d\n", resp.Usage.PromptTokens)
-	fmt.Printf("Completion Tokens: %d\n", resp.Usage.CompletionTokens)
-	fmt.Printf("Total Tokens: %d\n", resp.Usage.TotalTokens)
-	if resp.Usage.PromptTokensDetails != nil {
-		fmt.Printf("Cached Tokens: %d\n", resp.Usage.PromptTokensDetails.CachedTokens)
-	}
-	if d := resp.Usage.CompletionTokensDetails; d != nil {
-		fmt.Printf("Reasoning Tokens: %d\n", d.ReasoningTokens)
-		fmt.Printf("Accepted Prediction Tokens: %d\n", d.AcceptedPredictionTokens)
-		fmt.Printf("Rejected Prediction Tokens: %d\n", d.RejectedPredictionTokens)
-	}
-	fmt.Println("--- End Token Usage ---")
+	// Print token usage statistics
+	printTokenUsage(resp.Usage)
 
 	// Set GitHub Actions output
 	var toolArgs map[string]string
@@ -177,22 +232,8 @@ func run() error {
 		)
 	}
 
-	// Add token usage to output
-	output["prompt_tokens"] = strconv.Itoa(resp.Usage.PromptTokens)
-	output["completion_tokens"] = strconv.Itoa(resp.Usage.CompletionTokens)
-	output["total_tokens"] = strconv.Itoa(resp.Usage.TotalTokens)
-
-	// Add prompt token details if available
-	if resp.Usage.PromptTokensDetails != nil {
-		output["prompt_cached_tokens"] = strconv.Itoa(resp.Usage.PromptTokensDetails.CachedTokens)
-	}
-
-	// Add completion token details if available
-	if d := resp.Usage.CompletionTokensDetails; d != nil {
-		output["completion_reasoning_tokens"] = strconv.Itoa(d.ReasoningTokens)
-		output["completion_accepted_prediction_tokens"] = strconv.Itoa(d.AcceptedPredictionTokens)
-		output["completion_rejected_prediction_tokens"] = strconv.Itoa(d.RejectedPredictionTokens)
-	}
+	// Add token usage metrics to output
+	addTokenUsageToOutput(output, resp.Usage)
 
 	if err := gh.SetOutput(output); err != nil {
 		return fmt.Errorf("failed to set output: %v", err)
