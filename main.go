@@ -20,11 +20,13 @@ func main() {
 
 // maskAPIKey masks the API key for secure logging
 func maskAPIKey(apiKey string) string {
+	const maskPattern = "********"
+
 	if len(apiKey) <= 8 {
-		return "********"
+		return maskPattern
 	}
-	// Show first 4 and last 4 characters
-	return apiKey[:4] + "****" + apiKey[len(apiKey)-4:]
+	// Show first 4 and last 4 characters with fixed mask pattern
+	return apiKey[:4] + maskPattern + apiKey[len(apiKey)-4:]
 }
 
 // printTokenUsage prints token usage statistics to stdout
