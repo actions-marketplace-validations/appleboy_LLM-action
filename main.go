@@ -100,7 +100,7 @@ func prepareToolSchema(config *Config) (*ToolMeta, error) {
 
 	toolMeta, err := ParseToolSchema(config.ToolSchema)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse tool schema: %v", err)
+		return nil, fmt.Errorf("failed to parse tool schema: %w", err)
 	}
 
 	// Debug: Print tool schema if debug mode is enabled
@@ -165,7 +165,7 @@ func run() error {
 	// Create OpenAI client
 	client, err := NewClient(config)
 	if err != nil {
-		return fmt.Errorf("failed to create client: %v", err)
+		return fmt.Errorf("failed to create client: %w", err)
 	}
 
 	// Build messages
@@ -196,7 +196,7 @@ func run() error {
 	// Call the API
 	resp, err := client.CreateChatCompletion(context.Background(), req)
 	if err != nil {
-		return fmt.Errorf("chat completion error: %v", err)
+		return fmt.Errorf("chat completion error: %w", err)
 	}
 
 	// Extract response content
@@ -238,7 +238,7 @@ func run() error {
 	addTokenUsageToOutput(output, resp.Usage)
 
 	if err := gh.SetOutput(output); err != nil {
-		return fmt.Errorf("failed to set output: %v", err)
+		return fmt.Errorf("failed to set output: %w", err)
 	}
 
 	return nil
