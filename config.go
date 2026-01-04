@@ -122,7 +122,7 @@ func (c *Config) parseTemperature(s string) error {
 
 	temp, err := strconv.ParseFloat(s, 64)
 	if err != nil {
-		return fmt.Errorf("invalid temperature value: %v", err)
+		return fmt.Errorf("invalid temperature value: %w", err)
 	}
 	c.Temperature = temp
 	return nil
@@ -136,7 +136,7 @@ func (c *Config) parseMaxTokens(s string) error {
 
 	tokens, err := strconv.Atoi(s)
 	if err != nil {
-		return fmt.Errorf("invalid max_tokens value: %v", err)
+		return fmt.Errorf("invalid max_tokens value: %w", err)
 	}
 	if tokens < 0 {
 		return fmt.Errorf("max_tokens must be positive")
@@ -153,7 +153,7 @@ func (c *Config) parseSkipSSL(s string) error {
 
 	skip, err := strconv.ParseBool(s)
 	if err != nil {
-		return fmt.Errorf("invalid skip_ssl_verify value: %v", err)
+		return fmt.Errorf("invalid skip_ssl_verify value: %w", err)
 	}
 	c.SkipSSLVerify = skip
 	return nil
@@ -167,7 +167,7 @@ func (c *Config) parseDebug(s string) error {
 
 	debug, err := strconv.ParseBool(s)
 	if err != nil {
-		return fmt.Errorf("invalid debug value: %v", err)
+		return fmt.Errorf("invalid debug value: %w", err)
 	}
 	c.Debug = debug
 	return nil
