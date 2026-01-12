@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    - cron: "0 0 1 1,4,7,10 *" # Quarterly scan on 1st day of Jan, Apr, Jul, Oct
+    - cron: "0 0 * * *" # Daily scan at midnight UTC
   workflow_dispatch: # Allow manual trigger
 
 jobs:
